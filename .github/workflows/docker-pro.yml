@@ -104,60 +104,15 @@ jobs:
       # 原因：action 失败时 GitHub 只把 buildx 那句
       #   process "/bin/sh -c set -eu; go build ..." did not complete successfully: exit code: 1
       # 写进 annotation，编译器到底报了什么一个字都看不到（job log 又要 admin 权限）。
-      # 自己跑 buildx + tee 一份日志，失败时把尾部塞进 annotation 与 job summary，
-      # 匿名就能读，下一轮不用再猜。
+      # 改成 python 驱动 buildx：日志 tee 到文件，失败时尾部同时进 annotation 和 job summary，
+      # 匿名就能读，下一轮不用再猜。脚本见 tools/ci_build_image.py。
       - name: Build and push
         id: build
         env:
           BUILDKIT_PROGRESS: plain
           TAGS: ${{ steps.meta.outputs.tags }}
           LABELS: ${{ steps.meta.outputs.labels }}
-        run: |
-          set -uo pipefail
-
-          args=()
-          while IFS= read -r t; do [ -n "$t" ] && args+=(-t "$t"); done <<< "$TAGS"
-          while IFS= read -r l; do [ -n "$l" ] && args+=(--label "$l"); done <<< "$LABELS"
-          echo "标签:"; printf '  %s\n' "${args[@]}"
-
-          set +e
-          # --no-cache 是故意的。
-          # 上一版就是这里出的问题：amd64 与 arm64 两个 platform 共用一份 type=gha 缓存，
-          # 推出来的 linux/arm64 那一层 digest 和 amd64 完全相同，
-          # 也就是 arm64 镜像里躺着 amd64 二进制，用户 docker compose up 直接 exec format error。
-          docker buildx build \
-            --file ./Dockerfile \
-            --platform linux/amd64,linux/arm64 \
-            --no-cache \
-            --provenance=false \
-            --output type=image,push=true \
-            "${args[@]}" . 2>&1 | tee /tmp/build.log
-          rc=${PIPESTATUS[0]}
-          set -e
-
-          echo "buildx exit=$rc"
-          if [ "$rc" -ne 0 ]; then
-            python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
-            import os
-            data = open('/tmp/build.log', 'rb').read().decode('utf-8', 'replace')
-            tail = data[-6000:]
-            print('### 镜像构建失败 —— 日志尾部\n')
-            print('```')
-            print(tail.replace('```', "'''"))
-            print('```')
-            PY
-            # annotation 单条上限 4KB，取最后 3500 字符够看出 gcc / go 的报错
-            python3 - <<'PY'
-            import sys
-            data = open('/tmp/build.log', 'rb').read().decode('utf-8', 'replace')[-3500:]
-            msg = data.replace('%', '%25').replace('\r', '').replace('\n', '%0A')
-            sys.stdout.write('::error title=Build failed::' + msg + '\n')
-            PY
-            exit "$rc"
-          fi
-
-          FIRST_TAG=$(printf '%s\n' "$TAGS" | head -1)
-          docker buildx imagetools inspect "$FIRST_TAG" || true
+        run: python3 tools/ci_build_image.py
 
       - name: 校验已推送镜像（架构 / 首页自洽 / 品牌）
         run: |
