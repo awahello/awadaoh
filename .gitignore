@@ -24,11 +24,11 @@ service/uploads/
 service/runtime/
 service/logs/
 
-# 部署数据（compose 挂载目录）
-conf/
-uploads/
-database/
-runtime/
+# 部署数据（compose 挂载目录，只在仓库根生效；不加 / 会把 service/initialize/database 一起吞掉）
+/conf/
+/uploads/
+/database/
+/runtime/
 
 # 编辑器 / 系统
 .idea/
