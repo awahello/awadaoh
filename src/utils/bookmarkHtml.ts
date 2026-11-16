@@ -22,6 +22,26 @@ export interface BookmarkHtmlGroup {
   children: BookmarkHtmlSite[]
 }
 
+
+// 同名分组合并。
+// Chrome 的 "其他书签" 里经常也有一个叫「书签栏」的文件夹，
+// 不合并就会出现两个同名分组，导进去看着像重复导入了一遍。
+function mergeByTitle(groups: BookmarkHtmlGroup[]): BookmarkHtmlGroup[] {
+  const index = new Map<string, BookmarkHtmlGroup>()
+  const out: BookmarkHtmlGroup[] = []
+  for (const g of groups) {
+    const hit = index.get(g.title)
+    if (hit)
+      hit.children.push(...g.children)
+    else {
+      index.set(g.title, g)
+      out.push(g)
+    }
+  }
+  out.forEach((g, i) => { g.sort = i + 1 })
+  return out.filter(g => g.children.length > 0)
+}
+
 // 先看头部特征，避免把 JSON 配置误判成 HTML
 export function isBookmarkHtml(text: string): boolean {
   const head = (text || '').slice(0, 500).toLowerCase()
@@ -94,8 +114,76 @@ export function parseBookmarkHtml(text: string): BookmarkHtmlGroup[] {
   if (loose.length)
     groups.unshift({ title: '书签栏', sort: 1, children: loose })
 
-  // 重排 sort，丢掉空分组
-  const out = groups.filter(g => g.children.length > 0)
-  out.forEach((g, i) => { g.sort = i + 1 })
-  return out
+  // 同名分组合并 + 重排 sort，丢掉空分组
+  return mergeByTitle(groups)
+}
+
+// ── Chrome / Edge 的 Bookmarks JSON ────────────────────────────
+//
+// 用户在 chrome://bookmarks → 导出，或者直接拷 profile 里的
+// "Bookmarks" 文件，拿到的就是这种结构：
+//   { "roots": { "bookmark_bar": {children:[...]}, "other": {...}, "synced": {...} } }
+// 每个节点 type=folder 有 children，type=url 有 url/name。
+//
+// 分组规则和 nav / 后端同步一致：根节点下的直接链接归到根名分组，
+// 每个子文件夹独立成组（嵌套再深的文件夹也拍平成自己的组）。
+
+export function isChromeBookmarksJson(text: string): boolean {
+  const head = (text || '').trim().slice(0, 200)
+  if (!head.startsWith('{'))
+    return false
+  // 面板自己的配置也是 JSON，靠这几个特征区分
+  return text.includes('"bookmark_bar"') || (text.includes('"roots"') && text.includes('"children"'))
+}
+
+const ROOT_NAMES: Record<string, string> = {
+  bookmark_bar: '书签栏',
+  other: '其他书签',
+  synced: '移动设备书签',
+}
+
+export function parseChromeBookmarksJson(text: string): BookmarkHtmlGroup[] {
+  let data: any
+  try {
+    data = JSON.parse(text)
+  }
+  catch {
+    return []
+  }
+  const roots = data?.roots
+  if (!roots || typeof roots !== 'object')
+    return []
+
+  const out: BookmarkHtmlGroup[] = []
+
+  const walk = (node: any, name: string) => {
+    const sites: BookmarkHtmlSite[] = []
+    const subs: { node: any, name: string }[] = []
+    const children = Array.isArray(node?.children) ? node.children : []
+    for (const ch of children) {
+      if (ch?.type === 'url' && ch.url) {
+        const title = String(ch.name || ch.url)
+        sites.push({
+          title: title.length > 50 ? title.slice(0, 50) : title,
+          url: String(ch.url),
+          description: '',
+        })
+      }
+      else if (ch?.type === 'folder') {
+        subs.push({ node: ch, name: (String(ch.name || '').trim() || '未命名').slice(0, 40) })
+      }
+    }
+    if (sites.length)
+      out.push({ title: name.slice(0, 40), sort: out.length + 1, children: sites })
+    // 递归放在 append 之后，避免引用被扩容后的数组下标
+    for (const sub of subs)
+      walk(sub.node, sub.name)
+  }
+
+  for (const key of ['bookmark_bar', 'other', 'synced']) {
+    if (roots[key])
+      walk(roots[key], ROOT_NAMES[key])
+  }
+
+  return mergeByTitle(out)
 }

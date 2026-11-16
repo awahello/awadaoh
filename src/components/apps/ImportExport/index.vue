@@ -9,7 +9,7 @@ import { get as getAbout } from '@/api/system/about'
 import { edit as addGroup, getList as getGroupList } from '@/api/panel/itemIconGroup'
 import { addMultiple as addMultipleIcons, getListByGroupId } from '@/api/panel/itemIcon'
 import { exportBookmarks } from '@/api/panel/exportBookmarks'
-import { isBookmarkHtml, parseBookmarkHtml } from '@/utils/bookmarkHtml'
+import { isBookmarkHtml, isChromeBookmarksJson, parseBookmarkHtml, parseChromeBookmarksJson } from '@/utils/bookmarkHtml'
 import type { BookmarkHtmlGroup } from '@/utils/bookmarkHtml'
 
 import { t } from '@/locales'
@@ -246,27 +246,17 @@ function handleFileChange(options: { file: UploadFileInfo; fileList: Array<Uploa
         const text = reader.result as string
         // 浏览器导出的书签 HTML 和面板自己的 JSON 是两种格式，
         // 先认一下：是 HTML 就走 HTML 导入，别再报「配置文件格式不正确」
+        jsonData.value = text
         if (isBookmarkHtml(text)) {
-          htmlGroups.value = parseBookmarkHtml(text)
-          importMode.value = 'html'
-          importWarning.value = []
-          importObj.value = null
-          jsonData.value = text
-          if (!htmlGroups.value.length) {
-            ms.error('这个 HTML 里没解析到书签')
-          }
-          else {
-            const n = htmlGroups.value.reduce((a, g) => a + g.children.length, 0)
-            importItems.value = ['icons']
-            checkedItems.value = ['icons']
-            importRoundModalShow.value = true
-            ms.success(`读到 ${htmlGroups.value.length} 个分组 / ${n} 个站点`)
-          }
+          openBookmarkImport(parseBookmarkHtml(text), '浏览器书签 HTML')
+        }
+        else if (isChromeBookmarksJson(text)) {
+          // chrome://bookmarks 导出的 Bookmarks JSON，或者直接拷的 profile 文件
+          openBookmarkImport(parseChromeBookmarksJson(text), 'Chrome 书签 JSON')
         }
         else {
           importMode.value = 'json'
           htmlGroups.value = []
-          jsonData.value = text
           importCheck()
         }
       }
@@ -277,6 +267,23 @@ function handleFileChange(options: { file: UploadFileInfo; fileList: Array<Uploa
     }
     reader.readAsText(options.file.file)
   }
+}
+
+// 浏览器书签（HTML / Chrome JSON）解析成功后统一走这里
+function openBookmarkImport(groups: BookmarkHtmlGroup[], sourceLabel: string) {
+  htmlGroups.value = groups
+  importMode.value = 'html'
+  importWarning.value = []
+  importObj.value = null
+  if (!groups.length) {
+    ms.error(`${sourceLabel} 里没解析到书签`)
+    return
+  }
+  const n = groups.reduce((a, g) => a + g.children.length, 0)
+  importItems.value = ['icons']
+  checkedItems.value = ['icons']
+  importRoundModalShow.value = true
+  ms.success(`${sourceLabel}：${groups.length} 个分组 / ${n} 个站点`)
 }
 
 // 验证导入文件
@@ -367,7 +374,7 @@ async function handleStartImport() {
     <div class="flex justify-center m-[50px]">
       <div class="m-[10px]">
         <NUpload
-          accept=".awadaoh.json,.sunpanel.json,.html,.htm"
+          accept=".awadaoh.json,.sunpanel.json,.html,.htm,.json"
           directory-dnd
           :default-upload="false"
           :show-file-list="false"
