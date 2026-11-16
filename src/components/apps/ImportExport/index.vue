@@ -8,6 +8,7 @@ import { ConfigVersionLowError, FormatError, exportJson, importJsonString } from
 import { get as getAbout } from '@/api/system/about'
 import { edit as addGroup, getList as getGroupList } from '@/api/panel/itemIconGroup'
 import { addMultiple as addMultipleIcons, getListByGroupId } from '@/api/panel/itemIcon'
+import { exportBookmarks } from '@/api/panel/exportBookmarks'
 
 import { t } from '@/locales'
 
@@ -27,6 +28,31 @@ const version = ref('') // 当前软件版本
 const debug = ref(false)
 
 const importObj = ref<ImportJsonResult | null> (null)
+
+// ── 导出书签 ────────────────────────────────────────
+// 导出接口要 token，浏览器地址栏带不上，所以后端把内容塞进 JSON 返回，
+// 这里自己拼 Blob 再点一个临时 <a download>。
+const bookmarkBusy = ref(false)
+const includeHidden = ref(true)
+
+function downloadBookmarks(format: 'html' | 'json') {
+  bookmarkBusy.value = true
+  exportBookmarks<any>(format, includeHidden.value)
+    .then(({ data }) => {
+      const blob = new Blob([data.content], { type: data.mime || 'text/plain;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = data.filename || ('awadaoh-bookmarks.' + format)
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      setTimeout(() => URL.revokeObjectURL(url), 5000)
+      ms.success('已导出 ' + (data.filename || ''))
+    })
+    .catch(e => ms.error(e?.message || '导出失败'))
+    .finally(() => { bookmarkBusy.value = false })
+}
 
 const importItems = ref<string[]>(['icons']) // 当前软件版本支持导入导出的项目
 const checkedItems = ref<string[]>(['icons']) // 当前准备导入的项目
@@ -278,6 +304,27 @@ async function handleStartImport() {
           {{ $t('apps.exportImport.export') }}
         </NButton>
       </div>
+    </div>
+
+    <NDivider />
+
+    <div class="m-[10px]">
+      <div class="mb-[8px] text-sm opacity-70">导出书签（和浏览器「导出书签」同一种格式，Chrome / Edge / Firefox 都能直接导入）</div>
+      <NSpace>
+        <NButton :loading="bookmarkBusy" @click="downloadBookmarks('html')">
+          <template #icon>
+            <SvgIcon icon="fa6:solid-file-export" />
+          </template>
+          导出书签 HTML
+        </NButton>
+        <NButton :loading="bookmarkBusy" @click="downloadBookmarks('json')">
+          <template #icon>
+            <SvgIcon icon="fa6:solid-file-export" />
+          </template>
+          导出 JSON 备份
+        </NButton>
+        <NCheckbox v-model:checked="includeHidden">包含前台隐藏的分组</NCheckbox>
+      </NSpace>
     </div>
 
     <div class="flex justify-center">

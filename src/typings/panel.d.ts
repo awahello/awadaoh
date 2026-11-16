@@ -19,6 +19,16 @@ declare namespace Panel {
         needsIntranet?: boolean
     }
 
+    // 谷歌书签同步的配置（后端 system_setting 里的 panel_sync）
+    interface SyncSetting {
+        enabled: boolean
+        path?: string
+        interval?: number
+        mode?: 'merge' | 'replace'
+        lastSync?: number
+        lastResult?: string
+    }
+
     interface ItemIconGroup extends Common.InfoBase {
         icon?: string
         title?: string

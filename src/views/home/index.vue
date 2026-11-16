@@ -6,6 +6,7 @@ import { AppStarter, EditItem } from './components'
 import { SearchBox, SystemMonitor } from '@/components/deskModule'
 import { ItemIcon, SvgIcon } from '@/components/common'
 import { deletes, getClientEnv, getListByGroupId, saveSort } from '@/api/panel/itemIcon'
+import { getFrontLock, unlockFrontLock } from '@/api/panel/frontLock'
 import { edit as editGroup, getList as getGroupList } from '@/api/panel/itemIconGroup'
 
 import { setTitle, updateLocalUserInfo } from '@/utils/cmn'
@@ -55,6 +56,54 @@ const canEdit = computed(() => authStore.visitMode === VisitMode.VISIT_MODE_LOGI
 
 // 侧栏左上角那个渐变方块里的字：取站点名首字母，没配就 A
 const brandMark = computed(() => (panelState.panelConfig.logoText || 'A').trim().charAt(0).toUpperCase() || 'A')
+
+// ── 前台访问密码 ────────────────────────────────────
+// 锁着的时候压根不拉数据：服务端在公开模式中间件里就回 1008，
+// 前端这里只是别去撞墙、直接把锁屏画出来。
+const frontLocked = ref(false)
+const frontPass = ref('')
+const frontBusy = ref(false)
+const frontErr = ref('')
+
+async function checkFrontLock(): Promise<boolean> {
+  try {
+    const { data } = await getFrontLock<any>()
+    if (data?.enabled && !data?.unlocked) {
+      frontLocked.value = true
+      return true
+    }
+    if (!data?.enabled) {
+      try { localStorage.removeItem('awadaoh-front-token') } catch (e) {}
+    }
+  }
+  catch (e) {
+    // 接口不通就当没开，别把人挡在门外
+  }
+  return false
+}
+
+async function doUnlock() {
+  if (!frontPass.value)
+    return
+  frontBusy.value = true
+  frontErr.value = ''
+  try {
+    const { data } = await unlockFrontLock<any>(frontPass.value)
+    if (data?.token) {
+      try { localStorage.setItem('awadaoh-front-token', data.token) } catch (e) {}
+    }
+    frontLocked.value = false
+    frontPass.value = ''
+    getList()
+    detectClientEnv()
+  }
+  catch (e: any) {
+    frontErr.value = e?.message || '密码不正确'
+  }
+  finally {
+    frontBusy.value = false
+  }
+}
 
 // 左侧分类筛选：null = 全部
 const activeGroupId = ref<number | null>(null)
@@ -359,12 +408,18 @@ function getDropdownMenuOptions() {
   return dropdownMenuOptions
 }
 
-onMounted(() => {
+onMounted(async () => {
   // 更新用户信息
   updateLocalUserInfo()
+
+  // 先问一句「前台要不要密码」。锁着就只画锁屏，不去拉数据 ——
+  // 服务端这时候也不会给，撞上去只会刷一排 1008 的报错。
+  if (await checkFrontLock())
+    return
+
   getList()
 
-  // 先问一句「我在不在内网」，再决定内网卡是能直连还是提示需要内网
+  // 再问一句「我在不在内网」，决定内网卡是能直连还是提示需要内网
   detectClientEnv()
 
   // 更新同步云端配置
@@ -615,6 +670,25 @@ function handleAddItem(itemIconGroupId?: number) {
         <div class="foot" v-html="panelState.panelConfig.footerHtml" />
       </div>
     </main>
+
+    <!-- 前台访问密码：后台「同步与访问」打开后才出现 -->
+    <div v-if="frontLocked" class="lock">
+      <div class="lock-card">
+        <div class="lock-mark">🔒</div>
+        <div class="lock-title">{{ panelState.panelConfig.logoText || 'Awadaoh' }}</div>
+        <div class="lock-sub">{{ t('panelHome.frontLockTip') }}</div>
+        <div class="lock-form">
+          <input
+            v-model="frontPass" type="password" :placeholder="t('common.password')"
+            autocomplete="current-password" @keyup.enter="doUnlock"
+          >
+          <button :disabled="frontBusy" @click="doUnlock">
+            {{ frontBusy ? t('common.verify') : t('common.confirm') }}
+          </button>
+        </div>
+        <div class="lock-err">{{ frontErr }}</div>
+      </div>
+    </div>
 
     <!-- 右键菜单 -->
     <NDropdown
@@ -1222,6 +1296,101 @@ html {
 .search-wrap :deep(.search-box-btn-search),
 .search-wrap :deep(.search-box-btn-clear) {
   color: var(--text-3);
+}
+
+/* ── 前台访问锁 ───────────────────────────────────── */
+.lock {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(900px 520px at 8% -12%, rgba(91, 108, 255, 0.30), transparent 62%),
+    radial-gradient(760px 480px at 102% 108%, rgba(34, 211, 197, 0.18), transparent 62%),
+    var(--bg);
+}
+
+.lock-card {
+  width: min(360px, 100%);
+  padding: 30px 24px 22px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--line);
+  background: var(--panel);
+  box-shadow: var(--shadow-2);
+  text-align: center;
+}
+
+.lock-mark {
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 16px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, var(--brand), var(--accent));
+  display: grid;
+  place-items: center;
+  font-size: 23px;
+  box-shadow: var(--shadow-brand);
+}
+
+.lock-title {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.lock-sub {
+  margin-top: 6px;
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+
+.lock-form {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.lock-form input {
+  flex: 1;
+  min-width: 0;
+  height: 42px;
+  padding: 0 14px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line-strong);
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+}
+
+.lock-form input:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(91, 108, 255, 0.18);
+}
+
+.lock-form button {
+  height: 42px;
+  padding: 0 20px;
+  border: 0;
+  cursor: pointer;
+  border-radius: var(--r-sm);
+  background: var(--brand);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+}
+
+.lock-form button:hover { background: var(--brand-hi); }
+.lock-form button:disabled { opacity: 0.6; cursor: default; }
+
+.lock-err {
+  min-height: 17px;
+  margin-top: 10px;
+  font-size: 12px;
+  color: #F87171;
 }
 
 /* ── 窄屏：侧栏横过来当一排标签 ────────────────────── */

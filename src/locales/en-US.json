@@ -125,6 +125,9 @@
         "dark": "Dark ",
         "light": "Light "
       }
+    },
+    "sync": {
+      "appName": "Sync & Access"
     }
   },
   "common": {
@@ -258,7 +261,8 @@
     "needIntranetConfirm": "This is a LAN address and you don't seem to be on the LAN right now. Open anyway?",
     "autoLanMode": "LAN detected, switched to LAN mode",
     "selfHosted": "SELF-HOSTED",
-    "sites": "sites"
+    "sites": "sites",
+    "frontLockTip": "This site requires a password"
   },
   "settingUserInfo": {
     "confirmLogoutText": "Are you sure you want to logout?",
