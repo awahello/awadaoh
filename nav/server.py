@@ -4,8 +4,8 @@
 Awadaoh Nav · 极简自托管导航站
 
 一个文件的后端，只用标准库：
-  - 前台 /        打开就是导航，不需要登录
-  - 后台 /admin   改分组、改站点、导入 Chrome 书签
+  - 前台 /        打开就是导航，不需要登录（后台可以开一把「访问密码」锁）
+  - 后台 /admin   改分组、改站点、导入/导出 Chrome 书签
   - 数据 config.json，随手备份
 
 运行：
@@ -31,6 +31,11 @@ Awadaoh Nav · 极简自托管导航站
     打上 private 标记。/api/config 对未登录访客把 private 站点的 url 置空
     （privateMode=mask）或整条不下发（hide）；带有效 token 才给真实地址。
     这样挂到公网也不会把内网拓扑贴出去。
+
+前台访问密码（可选）：
+    frontLock=True 时，/api/config 只下发标题/副标题/页脚/主题，分组和站点
+    一个都不给，前端只画一个锁屏。POST /api/unlock 用 frontPass（留空则用
+    后台密码）换 scope=front 的 token，它只能解锁浏览，碰不到任何写接口。
 """
 
 import base64
@@ -46,7 +51,7 @@ import threading
 import time
 from html.parser import HTMLParser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import urlparse, unquote
+from urllib.parse import urlparse, unquote, parse_qs
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 STATIC = os.path.join(BASE, "static")
@@ -85,6 +90,11 @@ def default_config():
         ],
         "password": DEFAULT_PASS,
         "theme": "dark",
+        # 前台访问锁：True 时访客必须先输密码，/api/config 只下发标题和主题，
+        # 分组和站点一个都不给（服务端就不下发，不是前端藏起来）。
+        "frontLock": False,
+        # 前台密码。空 = 直接用后台密码，少记一套。
+        "frontPass": "",
         # 内网地址处理：mask=前台打码 / hide=前台完全不下发 / show=原样显示
         "privateMode": "mask",
         # 域名解析复查（公司内网域名 → 10.x 这种），默认关，开了导入会慢
@@ -160,6 +170,24 @@ def save_config(cfg):
 
 HIDDEN_DESC = "内网地址，已隐藏"
 
+# 前台锁没解锁时，只允许下发这几个字段（渲染锁屏要用）
+LOCKED_KEYS = ("title", "subtitle", "footer", "footerUrl", "theme")
+
+
+def locked_config(cfg):
+    """前台锁开着、访客还没输密码时下发的极简配置。
+
+    这里是个白名单，不是黑名单：只给锁屏要用的标题/副标题/页脚/主题。
+    分组、站点、搜索引擎、同步状态一律不给 —— 漏一个字段就是漏一份可被
+    未授权读取的数据，所以宁可锁屏丑一点也不要多给。
+    """
+    out = {k: cfg.get(k) for k in LOCKED_KEYS}
+    out["locked"] = True
+    out["frontLock"] = True
+    out["groups"] = []
+    out["privateTotal"] = 0
+    return out
+
 
 def mask_site(site):
     """把内网站点的地址抹掉，只留标题和标记。"""
@@ -171,7 +199,7 @@ def mask_site(site):
     return out
 
 
-def public_config(cfg, authed=False):
+def public_config(cfg, authed=False, front=False):
     """对外输出。
 
     authed=False（未登录访客）：password 去掉，内网地址按 privateMode 处理
@@ -179,13 +207,25 @@ def public_config(cfg, authed=False):
         hide → 这些站点整条不下发
         show → 原样（自己内网部署才该用）
     authed=True（后台已登录）：完整配置，内网地址照给
+    front=True（前台输过访问密码，或者本身就是后台登录态）：锁开了也给完整内容
+
+    frontLock 开着且既没登录后台、也没解前台锁时，直接返回 locked_config()，
+    连分组结构都不下发。前端只负责画锁屏。
     """
+    if cfg.get("frontLock") and not authed and not front:
+        return locked_config(cfg)
+
     mode = str(cfg.get("privateMode") or "mask")
     if mode not in ("mask", "hide", "show"):
         mode = "mask"
 
     out = dict(cfg)
     out.pop("password", None)
+    # 前台密码同样不外发。后台只拿到「有没有设过」这一个布尔值，
+    # 用来决定密码框的 placeholder 该写「已设置」还是「留空=后台密码」。
+    out.pop("frontPass", None)
+    out["frontLock"] = bool(cfg.get("frontLock"))
+    out["frontPassSet"] = bool(str(cfg.get("frontPass") or "").strip())
 
     groups, masked, dropped = [], 0, 0
     for g in cfg.get("groups") or []:
@@ -542,6 +582,91 @@ def parse_any(raw):
     return parse_bookmarks_html(raw.decode("utf-8", "ignore") if isinstance(raw, bytes) else raw)
 
 
+# ─────────────────────── 书签 HTML 生成（导出） ───────────────────────
+#
+# 和上面的 parse_bookmarks_html 对称：导入是 HTML → groups，导出是 groups → HTML。
+# 格式用 Netscape Bookmark，Chrome / Edge / Firefox 的「导入书签」都认这个。
+
+
+def _esc_html(s):
+    return (str(s or "").replace("&", "&amp;").replace("<", "&lt;")
+            .replace(">", "&gt;").replace('"', "&quot;"))
+
+
+def build_bookmarks_html(cfg, include_hidden=True):
+    """配置 → Netscape 书签 HTML。
+
+    一个分组一个 <H3>，组内站点是 <DT><A>。标题前面带上分组 emoji，
+    导进浏览器后还能一眼认出是哪个分类。
+    include_hidden=False 时不写 hidden 分组（前台隐藏的那几个）。
+    后台密码 / 前台密码一律不写进这个文件 —— 它是拿去导浏览器的，不该带口令。
+    """
+    now = int(time.time())
+    out = [
+        "<!DOCTYPE NETSCAPE-Bookmark-file-1>",
+        "<!-- This is an automatically generated file. -->",
+        "<!-- It will be read and overwritten. Do not edit. -->",
+        '<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">',
+        "<TITLE>Bookmarks</TITLE>",
+        "<H1>Bookmarks</H1>",
+        "<DL><p>",
+    ]
+
+    for g in cfg.get("groups") or []:
+        if g.get("hidden") and not include_hidden:
+            continue
+        gname = str(g.get("name") or "未命名")
+        icon = str(g.get("icon") or "").strip()
+        title = (icon + " " + gname) if icon else gname
+        out.append('    <DT><H3 ADD_DATE="%d" LAST_MODIFIED="%d">%s</H3>'
+                   % (now, now, _esc_html(title)))
+        out.append("    <DL><p>")
+        for s in g.get("sites") or []:
+            url = str(s.get("url") or "").strip()
+            if not url:
+                continue
+            attrs = 'ADD_DATE="%d"' % now
+            ico = str(s.get("icon") or "").strip()
+            # ICON 只在真的是图片地址时才写：favicon.im 那种懒加载地址浏览器也认
+            if ico.startswith(("http://", "https://", "data:image/")):
+                attrs += ' ICON_URI="%s"' % _esc_html(ico)
+            desc = str(s.get("desc") or "").strip()
+            if desc:
+                attrs += ' DESCRIPTION="%s"' % _esc_html(desc[:200])
+            out.append('        <DT><A HREF="%s" %s>%s</A>'
+                       % (_esc_html(url), attrs, _esc_html(s.get("title") or url)))
+        out.append("    </DL><p>")
+
+    out.append("</DL><p>")
+    return "\n".join(out) + "\n"
+
+
+def export_json(cfg):
+    """完整备份（后台看到的结构）。带 private 标记、hidden 标记、图标。
+
+    不带 password / frontPass：备份文件经常被扔到网盘，别把口令也扔进去。
+    """
+    out = {
+        "app": "awadaoh-nav",
+        "version": 1,
+        "exportedAt": int(time.time()),
+        "title": cfg.get("title"),
+        "subtitle": cfg.get("subtitle"),
+        "footer": cfg.get("footer"),
+        "footerUrl": cfg.get("footerUrl"),
+        "theme": cfg.get("theme"),
+        "searchEngine": cfg.get("searchEngine"),
+        "engine": cfg.get("engine"),
+        "engines": cfg.get("engines") or [],
+        "privateMode": cfg.get("privateMode"),
+        "privateDns": bool(cfg.get("privateDns")),
+        "frontLock": bool(cfg.get("frontLock")),
+        "groups": cfg.get("groups") or [],
+    }
+    return json.dumps(out, ensure_ascii=False, indent=2)
+
+
+
 # ─────────────────────── 书签自动同步 ───────────────────────
 
 SYNC_LOCK = threading.Lock()
@@ -774,18 +899,26 @@ MIME = {
 }
 
 
-def issue_token():
+def issue_token(scope="admin"):
+    """发一个 token。scope 决定它能干什么：
+
+    admin  → 后台全部接口 + 前台看到真实内网地址
+    front  → 只够解开前台访问锁，拿不到任何写接口
+    分开是因为前台锁的密码往往比后台密码简单，不能让它顺手拿到后台权限。
+    """
     t = secrets.token_urlsafe(24)
-    TOKENS[t] = time.time() + TOKEN_TTL
+    TOKENS[t] = {"exp": time.time() + TOKEN_TTL, "scope": scope}
     return t
 
 
-def token_ok(t):
-    exp = TOKENS.get(t)
-    if not exp:
+def token_ok(t, scope=None):
+    rec = TOKENS.get(t)
+    if not rec:
         return False
-    if exp < time.time():
+    if rec["exp"] < time.time():
         TOKENS.pop(t, None)
+        return False
+    if scope and rec.get("scope") != scope:
         return False
     return True
 
@@ -824,10 +957,31 @@ class Handler(BaseHTTPRequestHandler):
         return self.rfile.read(n)
 
     def _auth(self):
+        """后台 token。只有 scope=admin 的算数，前台解锁 token 过不了这里。"""
         h = self.headers.get("Authorization") or ""
         if h.startswith("Bearer "):
-            return token_ok(h[7:].strip())
+            return token_ok(h[7:].strip(), "admin")
         return False
+
+    def _front(self):
+        """前台锁是否已解开。
+
+        三个来源，按顺序试：
+          X-Front-Token 头         前台 fetch 用这个（不污染 Authorization）
+          Authorization: Bearer    前台把 token 塞这儿也行
+          ?ft=                     方便直接用浏览器打开一个已解锁的链接
+        后台登录态直接算解锁 —— 管理员不该被自己的锁关在门外。
+        """
+        if self._auth():
+            return True
+        t = (self.headers.get("X-Front-Token") or "").strip()
+        if not t:
+            h = self.headers.get("Authorization") or ""
+            if h.startswith("Bearer "):
+                t = h[7:].strip()
+        if not t:
+            t = (parse_qs(urlparse(self.path).query).get("ft") or [""])[0].strip()
+        return token_ok(t, "front") if t else False
 
     def _static(self, rel):
         rel = rel.lstrip("/") or "index.html"
@@ -857,12 +1011,34 @@ class Handler(BaseHTTPRequestHandler):
             return self._static("admin.html")
 
         if p == "/api/config":
-            # 带有效 token 就拿完整配置（含内网地址），否则内网地址打码/隐藏
-            return self._json({"ok": True, "config": public_config(load_config(), authed=self._auth())})
+            # 带有效 token 就拿完整配置（含内网地址），否则内网地址打码/隐藏；
+            # 前台锁开着且没解锁时，这里只回锁屏要用的几个字段
+            cfg = load_config()
+            authed = self._auth()
+            return self._json({"ok": True,
+                               "config": public_config(cfg, authed=authed, front=self._front())})
         if p == "/api/health":
             return self._json({"ok": True, "time": int(time.time())})
         if p == "/api/auth":
-            return self._json({"ok": self._auth()})
+            return self._json({"ok": self._auth(), "front": self._front()})
+
+        if p == "/api/export":
+            # 导出等于把整份配置打包带走，只给后台登录态
+            if not self._auth():
+                return self._err("未登录", 401)
+            cfg = load_config()
+            qs = parse_qs(u.query)
+            fmt = (qs.get("format") or ["html"])[0].lower()
+            include_hidden = (qs.get("hidden") or ["1"])[0].lower() not in ("0", "false", "no")
+            stamp = time.strftime("%Y%m%d-%H%M")
+            if fmt == "json":
+                return self._send(200, export_json(cfg), "application/json; charset=utf-8",
+                                  {"Content-Disposition":
+                                   'attachment; filename="awadaoh-bookmarks-%s.json"' % stamp})
+            body = build_bookmarks_html(cfg, include_hidden=include_hidden)
+            return self._send(200, body, "text/html; charset=utf-8",
+                              {"Content-Disposition":
+                               'attachment; filename="awadaoh-bookmarks-%s.html"' % stamp})
         if p == "/api/sync":
             if not self._auth():
                 return self._err("未登录", 401)
@@ -896,7 +1072,24 @@ class Handler(BaseHTTPRequestHandler):
             if not secrets.compare_digest(str(data.get("password", "")), str(cfg.get("password", ""))):
                 time.sleep(0.4)  # 简单限速
                 return self._err("密码不正确", 401)
-            return self._json({"ok": True, "token": issue_token()})
+            return self._json({"ok": True, "token": issue_token("admin")})
+
+        if p == "/api/unlock":
+            # 前台锁解锁。发出去的是 scope=front 的 token，拿不到任何写接口。
+            try:
+                data = json.loads(self._body() or b"{}")
+            except Exception:
+                return self._err("请求格式错误")
+            cfg = load_config()
+            if not cfg.get("frontLock"):
+                # 锁没开就直接放行，免得前端缓存了旧状态卡在锁屏上
+                return self._json({"ok": True, "token": "", "locked": False})
+            want = str(cfg.get("frontPass") or cfg.get("password") or "")
+            got = str(data.get("password") or "")
+            if not want or not secrets.compare_digest(got, want):
+                time.sleep(0.4)  # 简单限速，和后台登录一致
+                return self._err("密码不正确", 401)
+            return self._json({"ok": True, "token": issue_token("front"), "locked": True})
 
         if p == "/api/import":
             if not self._auth():
@@ -985,6 +1178,13 @@ class Handler(BaseHTTPRequestHandler):
             cfg["privateMode"] = data["privateMode"]
         if "privateDns" in data:
             cfg["privateDns"] = bool(data["privateDns"])
+
+        # 前台访问锁
+        if "frontLock" in data:
+            cfg["frontLock"] = bool(data["frontLock"])
+        if isinstance(data.get("frontPass"), str):
+            # 空字符串是合法值：表示「改用后台密码」，不是「不改」
+            cfg["frontPass"] = data["frontPass"].strip()[:64]
         dns = bool(cfg.get("privateDns"))
 
         if isinstance(data.get("engines"), list):
@@ -1090,6 +1290,7 @@ def main():
     print("  同步  %s  %s" % ("开启" if sync.get("enabled") else "关闭",
                              resolved or "(未找到 Bookmarks 文件)"))
     print("  内网  %d 个地址，访客视图 %s" % (n_priv, mode_label))
+    print("  前台  %s" % ("需要访问密码（后台可关）" if cfg.get("frontLock") else "公开访问"))
     print("=" * 56)
     try:
         srv.serve_forever()

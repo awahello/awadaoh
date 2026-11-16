@@ -598,6 +598,123 @@
 			padding-right: 16px;
 		}
 	}
+
+	/* ── 前台访问锁 ───────────────────────────────────────── */
+	/* 后台「基本设置 → 前台访问密码」打开后才出现。服务端这时候根本不下发
+	   分组和站点，所以这里不需要也不应该做任何"前端隐藏"的花活。 */
+	.lock {
+		position: fixed;
+		inset: 0;
+		z-index: 90;
+		display: none;
+		place-items: center;
+		padding: 24px;
+		background: var(--bg);
+	}
+
+	.lock.show {
+		display: grid;
+	}
+
+	.lock-card {
+		width: min(360px, 100%);
+		padding: 30px 24px 22px;
+		border-radius: var(--r-lg);
+		border: 1px solid var(--line);
+		background: var(--panel);
+		box-shadow: var(--shadow-2);
+		text-align: center;
+	}
+
+	.lock-mark {
+		width: 52px;
+		height: 52px;
+		margin: 0 auto 16px;
+		border-radius: 16px;
+		background: linear-gradient(135deg, var(--brand), var(--accent));
+		display: grid;
+		place-items: center;
+		font-size: 23px;
+		box-shadow: var(--shadow-brand);
+	}
+
+	.lock-title {
+		font-size: 17px;
+		font-weight: 700;
+		letter-spacing: 0.2px;
+	}
+
+	.lock-sub {
+		margin-top: 6px;
+		font-size: 12.5px;
+		color: var(--text-3);
+	}
+
+	.lock-form {
+		display: flex;
+		gap: 8px;
+		margin-top: 20px;
+	}
+
+	.lock-form input {
+		flex: 1;
+		min-width: 0;
+		height: 42px;
+		padding: 0 14px;
+		border-radius: var(--r-sm);
+		border: 1px solid var(--line-strong);
+		background: var(--panel-2);
+		color: var(--text);
+		font-size: 14px;
+		font-family: inherit;
+		outline: none;
+		transition: border-color 0.18s, box-shadow 0.18s;
+	}
+
+	.lock-form input:focus {
+		border-color: var(--brand);
+		box-shadow: 0 0 0 3px rgba(91, 108, 255, 0.18);
+	}
+
+	.lock-form button {
+		height: 42px;
+		padding: 0 20px;
+		border: 0;
+		cursor: pointer;
+		border-radius: var(--r-sm);
+		background: var(--brand);
+		color: #fff;
+		font-size: 14px;
+		font-weight: 600;
+		font-family: inherit;
+		transition: background 0.18s;
+	}
+
+	.lock-form button:hover {
+		background: var(--brand-hi);
+	}
+
+	.lock-form button:disabled {
+		opacity: 0.6;
+		cursor: default;
+	}
+
+	.lock-err {
+		min-height: 17px;
+		margin-top: 10px;
+		font-size: 12px;
+		color: var(--bad);
+	}
+
+	.lock-foot {
+		margin-top: 14px;
+		font-size: 11.5px;
+		color: var(--text-3);
+	}
+
+	.lock-foot a {
+		color: var(--text-3);
+	}
 </style>
 </head>
 <body>
@@ -661,6 +778,21 @@
 </div>
 
 <div id="toast"></div>
+
+<!-- 前台访问锁：后台「基本设置 → 前台访问密码」打开后才会出现 -->
+<div class="lock" id="lockScreen">
+	<form class="lock-card" id="lockForm">
+		<div class="lock-mark">🔒</div>
+		<div class="lock-title" id="lockTitle">请输入访问密码</div>
+		<div class="lock-sub" id="lockSub">这个导航站已开启访问验证</div>
+		<div class="lock-form">
+			<input id="lockPw" type="password" placeholder="访问密码" autocomplete="current-password">
+			<button type="submit" id="lockBtn">进入</button>
+		</div>
+		<div class="lock-err" id="lockErr"></div>
+		<div class="lock-foot"><a href="/admin">后台管理 →</a></div>
+	</form>
+</div>
 
 <script>
 (function () {
@@ -973,8 +1105,21 @@
 		return t ? { 'Authorization': 'Bearer ' + t } : {};
 	}
 
+	/* 前台访问锁的 token。和后台 token 分开放：后台 token 能改配置，
+	   前台锁的 token 只能解锁浏览，混在一个 key 里迟早出事。 */
+	function frontToken() {
+		try { return localStorage.getItem('ak-nav-front') || ''; } catch (e) { return ''; }
+	}
+
+	function frontHeaders() {
+		var h = authHeaders();
+		var ft = frontToken();
+		if (ft) h['X-Front-Token'] = ft;
+		return h;
+	}
+
 	function loadConfig() {
-		return fetch('/api/config', { cache: 'no-store', headers: authHeaders() })
+		return fetch('/api/config', { cache: 'no-store', headers: frontHeaders() })
 			.then(function (r) { return r.json(); })
 			.then(function (d) {
 				if (!d.ok) throw new Error('bad');
@@ -988,21 +1133,84 @@
 			});
 	}
 
-	loadConfig()
-		.then(function (cfg) {
-			CFG = cfg;
-			// 带了 token 但还在打码 → token 已失效（服务重启/过期），清掉免得后台一直转登录页
-			if (authHeaders().Authorization && (CFG.privateMasked || 0) > 0) {
-				try { localStorage.removeItem('ak-nav-token'); } catch (e) {}
+	/* ── 前台访问锁 ── */
+	function showLock(cfg) {
+		var box = $('#lockScreen');
+		box.classList.add('show');
+		if (cfg) {
+			if (cfg.title) $('#lockTitle').textContent = cfg.title;
+			if (cfg.subtitle) $('#lockSub').textContent = cfg.subtitle;
+		}
+		var pw = $('#lockPw');
+		if (pw) setTimeout(function () { pw.focus(); }, 80);
+	}
+
+	function hideLock() {
+		$('#lockScreen').classList.remove('show');
+	}
+
+	$('#lockForm').addEventListener('submit', function (e) {
+		e.preventDefault();
+		var pw = $('#lockPw').value;
+		if (!pw) return;
+		var btn = $('#lockBtn');
+		btn.disabled = true;
+		btn.textContent = '验证中';
+		$('#lockErr').textContent = '';
+		fetch('/api/unlock', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ password: pw })
+		}).then(function (r) { return r.json(); }).then(function (d) {
+			btn.disabled = false;
+			btn.textContent = '进入';
+			if (!d.ok) {
+				$('#lockErr').textContent = d.error || '密码不正确';
+				$('#lockPw').select();
+				return;
 			}
-			if (CFG.theme && !localStorage.getItem('ak-nav-theme')) applyTheme(CFG.theme);
-			loadEngines();
-			renderAll();
-		})
-		.catch(function () {
-			content.innerHTML = '<div class="empty"><strong>数据加载失败</strong>检查服务是否正常运行</div>';
-			toast('加载失败', true);
+			if (d.token) {
+				try { localStorage.setItem('ak-nav-front', d.token); } catch (e) {}
+			}
+			$('#lockPw').value = '';
+			hideLock();
+			boot();
+		}).catch(function () {
+			btn.disabled = false;
+			btn.textContent = '进入';
+			$('#lockErr').textContent = '请求失败，检查服务是否正常运行';
 		});
+	});
+
+	function boot() {
+		return loadConfig()
+			.then(function (cfg) {
+				CFG = cfg;
+				if (CFG.locked) {
+					// 服务端只给了标题，没给分组 —— 先挂锁，别渲染一个空导航
+					if (frontToken()) {
+						try { localStorage.removeItem('ak-nav-front'); } catch (e) {}
+					}
+					if (CFG.theme && !localStorage.getItem('ak-nav-theme')) applyTheme(CFG.theme);
+					showLock(CFG);
+					return;
+				}
+				hideLock();
+				// 带了 token 但还在打码 → token 已失效（服务重启/过期），清掉免得后台一直转登录页
+				if (authHeaders().Authorization && (CFG.privateMasked || 0) > 0) {
+					try { localStorage.removeItem('ak-nav-token'); } catch (e) {}
+				}
+				if (CFG.theme && !localStorage.getItem('ak-nav-theme')) applyTheme(CFG.theme);
+				loadEngines();
+				renderAll();
+			})
+			.catch(function () {
+				content.innerHTML = '<div class="empty"><strong>数据加载失败</strong>检查服务是否正常运行</div>';
+				toast('加载失败', true);
+			});
+	}
+
+	boot();
 })();
 </script>
 </body>

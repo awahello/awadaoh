@@ -8,6 +8,7 @@ import { router } from '@/router'
 import { t } from '@/locales'
 import { languageOptions } from '@/utils/defaultData'
 import type { Language } from '@/store/modules/app/helper'
+import { VisitMode } from '@/enums/auth'
 
 // const userStore = useUserStore()
 const authStore = useAuthStore()
@@ -31,6 +32,9 @@ const loginPost = async () => {
     if (res.code === 0) {
       authStore.setToken(res.data.token)
       authStore.setUserInfo(res.data)
+      // 立刻切成「已登录」，别等首页 onMounted 里的 updateLocalUserInfo 回来。
+      // 否则跳回首页的头一两百毫秒还是访客模式，加号 / 设置按钮会闪一下才出现。
+      authStore.setVisitMode(VisitMode.VISIT_MODE_LOGIN)
 
       setTimeout(() => {
         ms.success(`Hi ${res.data.name},${t('login.welcomeMessage')}`)

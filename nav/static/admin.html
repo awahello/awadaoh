@@ -447,6 +447,7 @@
 			<button class="tab" data-tab="groups">🗂 分组</button>
 			<button class="tab" data-tab="sites">🔖 站点</button>
 			<button class="tab" data-tab="import">📥 导入书签</button>
+			<button class="tab" data-tab="export">📤 导出书签</button>
 			<button class="tab" data-tab="sync">🔁 自动同步</button>
 		</nav>
 		<div class="nav-foot">
@@ -620,9 +621,12 @@
 			sync: CFG.sync || {},
 			privateMode: CFG.privateMode || 'mask',
 			privateDns: !!CFG.privateDns,
+			frontLock: !!CFG.frontLock,
 			groups: CFG.groups
 		};
 		if (CFG._newPassword) payload.newPassword = CFG._newPassword;
+		// '' 也要发：那是「清除前台密码、改用后台密码」的意思
+		if (typeof CFG._frontPass === 'string') payload.frontPass = CFG._frontPass;
 
 		api('/api/config', {
 			method: 'PUT',
@@ -631,6 +635,9 @@
 		}).then(function (d) {
 			CFG = d.config;
 			if (CFG._newPassword) delete CFG._newPassword;
+			// 存完就把这两个草稿清掉，否则下次点保存会拿旧值覆盖
+			delete CFG._newPassword;
+			delete CFG._frontPass;
 			toast('已保存');
 			render();
 		}).catch(function (e) { toast(e.message || '保存失败', true); });
@@ -654,6 +661,7 @@
 		if (tab === 'groups') renderGroups();
 		if (tab === 'sites') renderSites();
 		if (tab === 'import') renderImport();
+		if (tab === 'export') renderExport();
 		if (tab === 'sync') renderSync();
 	}
 
@@ -698,6 +706,22 @@
 			+ '代价是导入时会慢一点。'
 			+ '<br>你自己登录过后台（同一浏览器），打开首页仍然能看到并点开这些地址。</div>'
 			+ '</div>'
+			+ '<div class="card"><h3>前台访问密码</h3>'
+			+ row('要求先输密码', '<label class="switch"><input type="checkbox" id="f-frontLock"'
+				+ (CFG.frontLock ? ' checked' : '') + '><i></i>'
+				+ '<span class="hint">关掉就是现在这样：打开域名直接是导航</span></label>')
+			+ row('访问密码', '<div style="display:flex;gap:8px;align-items:center">'
+				+ '<input class="field" id="f-frontPass" type="password" style="flex:1"'
+				+ ' placeholder="' + (CFG.frontPassSet ? '已设置，留空不修改' : '留空 = 与后台密码相同') + '">'
+				+ '<button class="btn btn-sm btn-ghost" type="button" id="f-frontPassClear">改用后台密码</button>'
+				+ '</div>')
+			+ '<div class="hint" style="margin-top:10px">'
+			+ '打开后，访客打开首页先看到一把锁，输对密码才能看到分组和站点。'
+			+ '密码留空就直接用上面的后台密码，不用记两套。'
+			+ '<br>锁着的时候服务端<b style="color:var(--brand-hi)">根本不下发</b>分组、站点、搜索引擎，'
+			+ '前端只是画一个输入框 —— 不是把内容藏在页面里。'
+			+ '<br>解锁状态存在访客自己的浏览器里，12 小时内不用重复输；服务重启后需要重新输一次。</div>'
+			+ '</div>'
 			+ '<div class="card"><h3>安全</h3>'
 			+ row('新密码', '<input class="field" id="f-newpw" type="password" placeholder="留空表示不修改（至少 4 位）">')
 			+ '</div>';
@@ -719,6 +743,24 @@
 
 		$('#f-newpw').addEventListener('input', function () {
 			CFG._newPassword = this.value.trim() || null;
+		});
+
+		$('#f-frontLock').addEventListener('change', function () {
+			CFG.frontLock = this.checked;
+			if (this.checked && !CFG.frontPassSet && !$('#f-frontPass').value) {
+				toast('已开启，访问密码留空 = 用后台密码');
+			}
+		});
+		$('#f-frontPass').addEventListener('input', function () {
+			// 只有真输入了才带上，空着就表示「不改」
+			CFG._frontPass = this.value.trim() || null;
+		});
+		$('#f-frontPassClear').addEventListener('click', function () {
+			// 空字符串是有意义的：服务端据此把 frontPass 清掉，改用后台密码
+			CFG._frontPass = '';
+			$('#f-frontPass').value = '';
+			$('#f-frontPass').placeholder = '留空 = 与后台密码相同';
+			toast('保存后前台改用后台密码');
 		});
 	}
 
@@ -968,6 +1010,80 @@
 		file.addEventListener('change', function () {
 			if (file.files.length) upload(file.files[0]);
 		});
+	}
+
+	/* ── 导出 ── */
+	function renderExport() {
+		var nG = (CFG.groups || []).length;
+		var nS = 0, nHidden = 0, nPriv = 0;
+		(CFG.groups || []).forEach(function (g) {
+			nS += (g.sites || []).length;
+			if (g.hidden) nHidden++;
+			(g.sites || []).forEach(function (s) { if (s.private) nPriv++; });
+		});
+
+		body.innerHTML =
+			'<div class="tip">导出的 <code>.html</code> 和浏览器「导出书签」是同一种格式'
+			+ '（Netscape Bookmark），Chrome / Edge / Firefox 都能直接导入，也能当备份，换机器时导回来。'
+			+ '<br>导入时会把同名分组<b>覆盖成新的</b>，所以别在同一个实例上反复「导出再导入」——'
+			+ '要备份就用 JSON，那个能完整回滚。</div>'
+
+			+ '<div class="card"><h3>当前数据</h3>'
+			+ '<table class="kv">'
+			+ '<tr><td>分组</td><td><b style="color:var(--text)">' + nG + '</b> 个'
+			+ (nHidden ? '，其中 <b style="color:var(--warn)">' + nHidden + '</b> 个前台隐藏' : '') + '</td></tr>'
+			+ '<tr><td>站点</td><td><b style="color:var(--text)">' + nS + '</b> 个'
+			+ (nPriv ? '，其中 <b style="color:var(--warn)">🔒 ' + nPriv + '</b> 个内网地址' : '') + '</td></tr>'
+			+ '<tr><td>口令</td><td>后台密码、前台访问密码都不会写进导出文件</td></tr>'
+			+ '</table>'
+			+ '</div>'
+
+			+ '<div class="card"><h3>导出</h3>'
+			+ row('书签 HTML', '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">'
+				+ '<button class="btn btn-primary" id="expHtml">下载 .html</button>'
+				+ '<label class="switch" style="width:auto;gap:8px"><input type="checkbox" id="expHidden" checked><i></i>'
+				+ '<span class="hint" style="margin:0">包含前台隐藏的分类</span></label>'
+				+ '</div>')
+			+ row('JSON 备份', '<button class="btn" id="expJson">下载 .json</button>')
+			+ '<div class="hint" style="margin-top:10px">'
+			+ '<b>.html</b>：只有分组名和站点标题/地址，导进浏览器就是一棵书签树，'
+			+ '分组名前面会带上你设的 emoji。'
+			+ '<br><b>.json</b>：后台看到的完整结构（图标、隐藏标记、内网标记、搜索引擎、主题），'
+			+ '适合留档或迁移到另一台机器。</div>'
+			+ '</div>';
+
+		$('#expHtml').addEventListener('click', function () {
+			download('/api/export?format=html&hidden=' + ($('#expHidden').checked ? '1' : '0'));
+		});
+		$('#expJson').addEventListener('click', function () {
+			download('/api/export?format=json');
+		});
+	}
+
+	function download(url) {
+		toast('正在生成…');
+		// 导出接口要后台 token，所以不能直接 <a href>，得带 header 取回来再点一个 blob
+		fetch(url, { headers: { 'Authorization': 'Bearer ' + TOKEN } })
+			.then(function (r) {
+				if (!r.ok) throw new Error(r.status === 401 ? '登录已过期，请重新登录' : ('导出失败 HTTP ' + r.status));
+				var name = 'awadaoh-bookmarks.' + (url.indexOf('format=json') >= 0 ? 'json' : 'html');
+				var cd = r.headers.get('Content-Disposition') || '';
+				var m = /filename="?([^";]+)"?/.exec(cd);
+				if (m) name = m[1];
+				return r.blob().then(function (b) { return { blob: b, name: name }; });
+			})
+			.then(function (o) {
+				var a = document.createElement('a');
+				var u = URL.createObjectURL(o.blob);
+				a.href = u;
+				a.download = o.name;
+				document.body.appendChild(a);
+				a.click();
+				a.remove();
+				setTimeout(function () { URL.revokeObjectURL(u); }, 5000);
+				toast('已导出 ' + o.name + '（' + Math.max(1, Math.round(o.blob.size / 1024)) + ' KB）');
+			})
+			.catch(function (e) { toast(e.message || '导出失败', true); });
 	}
 
 	function renderSync() {
