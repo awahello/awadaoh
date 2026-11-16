@@ -1,31 +1,28 @@
-name: build-pro
+name: build-image
 
-# 构建 PRO 全功能镜像：
-#   后端 = 上游 release 二进制 + ProIsExpired 恒 false 补丁
-#   前端 = 我们自己 src/ 的编译产物（dist），上游包只提供 custom/ static/ 挂载点
+# 全量镜像：前后端都从本仓库源码构建，不再取上游预编译包。
+#   前端  src/      → dist/     node 20 + vite
+#   后端  service/  → awadaoh   golang 1.21 + cgo（sqlite 驱动要 cgo）
 # 产出：ghcr.io/<owner>/awadaoh:latest（linux/amd64 + linux/arm64）
+#
+# 为什么不再用 Dockerfile.pro：
+#   那条线 COPY 的是 pro/ 里的上游二进制 + 上游预编译前端包，
+#   src/ 与 service/ 从来没参与打包，所以线上永远是上游那套登录页。
+#   融合改动（分类三态 / 内网打码 / 前台无登录 / 左侧分类栏）只在源码里，
+#   必须源码构建才生效。
 
 on:
   push:
     branches: [main]
     tags: ['v*']
   workflow_dispatch:
-    inputs:
-      upstream_tag:
-        description: '上游 release tag'
-        required: false
-        default: 'v2.0.2-beta261110'
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  # 物料优先从本仓库的 release 取（tools/mirror-pro.sh 镜像上来的一次性包），
-  # 只有本仓库没有对应 tag 时才回退上游同版本。
-  MIRROR_REPO: ${{ github.repository }}
-  UPSTREAM_TAG: v2.0.2-beta261110
 
 jobs:
-  build:
+  image:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -35,79 +32,50 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Resolve upstream tag
-        id: up
-        run: |
-          TAG="${{ github.event.inputs.upstream_tag || env.UPSTREAM_TAG }}"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "上游版本: $TAG"
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
 
-      - name: 构建前端（我们自己的 src/，不是上游 web 包）
+      - name: 前端构建 + 自洽检查
         run: |
           set -euo pipefail
           node -v && npm -v
           npm ci --no-audit --no-fund
           npm run build
-          echo "--- dist 产物 ---"
-          ls -la dist | head
-          echo "--- index.html 引用 ---"
-          grep -o 'assets/index-[A-Za-z0-9_-]*\.\(js\|css\)' dist/index.html
+
+          test -f dist/index.html || { echo "::error::没有 dist/index.html"; exit 1; }
           echo "--- 标题 ---"
           grep -o '<title>[^<]*</title>' dist/index.html
 
-      - name: 取物料并解包（amd64 / arm64）
-        run: |
-          set -euo pipefail
-          TAG="${{ steps.up.outputs.tag }}"
-          echo "物料版本: $TAG  来源仓库: $MIRROR_REPO"
-          for ARCH in amd64 arm64; do
-            bash tools/fetch-pro.sh "$ARCH" "$TAG" "/tmp/rel-${ARCH}"
-            ls -la "/tmp/rel-${ARCH}" | head -5
-          done
-
-      - name: 组装物料（打补丁 + 注入主题）
-        run: |
-          set -euo pipefail
-          python3 -V
-          bash tools/build-pro.sh /tmp/rel-amd64 pro/amd64
-          bash tools/build-pro.sh /tmp/rel-arm64 pro/arm64
-          echo "--- 产物 ---"
-          ls -la pro/amd64 pro/arm64
-          du -sh pro/web
-
-      - name: 前端自洽闸门（index.html 引用的 chunk 必须真的存在）
-        run: |
-          set -euo pipefail
-          refs=$(grep -o 'assets/index-[A-Za-z0-9_-]*\.\(js\|css\)' pro/web/index.html | sort -u || true)
-          echo "index.html 引用:"
+          refs=$(grep -o 'assets/index-[A-Za-z0-9_-]*\.\(js\|css\)' dist/index.html | sort -u || true)
+          echo "--- index.html 引用 ---"
           echo "$refs"
           if [ -z "$refs" ]; then
-            echo "::error::pro/web/index.html 里没有任何 assets 引用"
+            echo "::error::dist/index.html 里没有任何 assets 引用"
             exit 1
           fi
           for r in $refs; do
-            if [ ! -f "pro/web/$r" ]; then
+            if [ ! -f "dist/$r" ]; then
               echo "::error::index.html 引用了不存在的文件: $r"
-              ls -la pro/web/assets | head -20
               exit 1
             fi
           done
-          echo "OK：引用的 chunk 全部存在"
+          echo "前端自洽 OK"
 
-      - name: 架构闸门（两个架构的二进制不能是同一个文件）
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          cache-dependency-path: service/go.sum
+
+      - name: 后端编译 + vet（单元测试在 go-build.yml 里跑）
+        working-directory: service
         run: |
           set -euo pipefail
-          echo "--- 真实架构 ---"
-          python3 tools/elfarch.py pro/amd64/awadaoh --expect amd64
-          python3 tools/elfarch.py pro/arm64/awadaoh --expect arm64
-          A=$(sha256sum pro/amd64/awadaoh | cut -d' ' -f1)
-          B=$(sha256sum pro/arm64/awadaoh | cut -d' ' -f1)
-          echo "amd64: $A"
-          echo "arm64: $B"
-          if [ "$A" = "$B" ]; then
-            echo "::error::两个架构的二进制完全相同，说明 arm64 物料是 amd64 冒充的"
-            exit 1
-          fi
+          go build ./...
+          go vet ./...
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -136,23 +104,23 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: ./Dockerfile.pro
+          file: ./Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           # 故意不用 type=gha 缓存。
           # 上一版就是这里出的问题：amd64 与 arm64 两个 platform 共用一份 gha 缓存，
-          # 推出来的镜像里 linux/arm64 那一层的 digest 和 amd64 完全相同
-          # （sha256:a11a92c5…），也就是 arm64 镜像里躺着 amd64 二进制。
-          # 这个镜像总共就 build 一两分钟，去掉缓存换「架构不会串」值得。
+          # 推出来的 linux/arm64 那一层 digest 和 amd64 完全相同，也就是
+          # arm64 镜像里躺着 amd64 二进制，用户 docker compose up 直接 exec format error。
           no-cache: true
 
-      - name: 校验已推送镜像内二进制的真实架构
+      - name: 校验已推送镜像（架构 / 首页自洽 / 品牌）
         run: |
           set -euo pipefail
           TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -1)
           echo "校验镜像: $TAG"
+
           for ARCH in amd64 arm64; do
             docker pull --platform "linux/${ARCH}" "$TAG"
             docker create --platform "linux/${ARCH}" --name "chk-${ARCH}" "$TAG"
@@ -161,27 +129,17 @@ jobs:
             python3 tools/elfarch.py "/tmp/awadaoh-${ARCH}" --expect "$ARCH"
           done
 
-      - name: 校验品牌残留（镜像里不能再有 Sun-Panel）
-        run: |
-          set -euo pipefail
-          TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -1)
+          A=$(sha256sum /tmp/awadaoh-amd64 | cut -d' ' -f1)
+          B=$(sha256sum /tmp/awadaoh-arm64 | cut -d' ' -f1)
+          echo "amd64: $A"
+          echo "arm64: $B"
+          if [ "$A" = "$B" ]; then
+            echo "::error::两个架构的二进制完全相同"
+            exit 1
+          fi
+
           docker run --rm --platform linux/amd64 --entrypoint /bin/sh "$TAG" -c '
             set -e
-            n=$(grep -rl "Sun-Panel" /app/web 2>/dev/null | wc -l)
-            echo "前端包残留 Sun-Panel 文件数: $n"
-            if [ "$n" != "0" ]; then
-              grep -rl "Sun-Panel" /app/web | head
-              exit 1
-            fi
-            echo "后端横幅:"
-            grep -a -o "Welcome to [A-Za-z ]*" /app/awadaoh | head -3
-            grep -a -o "[A-Za-z]* is started up" /app/awadaoh | head -3
-            echo "项目地址:"
-            grep -a -o "https://github.com/awahello/awadaoh" /app/awadaoh | head -3
-            if grep -a -q "github.com/hslr-s/sun-panel" /app/awadaoh; then
-              echo "!! 后端还带着上游项目地址"
-              exit 1
-            fi
             echo "--- 首页自洽 ---"
             grep -o "assets/index-[A-Za-z0-9_-]*\.\(js\|css\)" /app/web/index.html | sort -u > /tmp/refs
             cat /tmp/refs
@@ -192,4 +150,27 @@ jobs:
               fi
             done
             echo "首页 chunk 自洽 OK"
+
+            echo "--- 品牌残留 ---"
+            n=$(grep -rl "Sun-Panel" /app/web 2>/dev/null | wc -l)
+            echo "前端残留 Sun-Panel 文件数: $n"
+            if [ "$n" != "0" ]; then
+              grep -rl "Sun-Panel" /app/web | head
+              exit 1
+            fi
+            if grep -a -q "github.com/hslr-s/sun-panel" /app/awadaoh; then
+              echo "!! 二进制里还带着上游项目地址"
+              exit 1
+            fi
+            grep -a -o "https://github.com/awahello/awadaoh" /app/awadaoh | head -1
+
+            echo "--- 内嵌资源（//go:embed 是否真的烘进去了）---"
+            cd /tmp
+            /app/awadaoh -config >/dev/null 2>&1 || true
+            if ! grep -q "^http_port=" /tmp/conf/conf.ini 2>/dev/null; then
+              echo "!! service/assets 没被 //go:embed 烘进二进制，conf 模板写不出来"
+              exit 1
+            fi
+            head -3 /tmp/conf/conf.ini
+            echo "内嵌 conf 模板 OK"
           '

@@ -1,8 +1,9 @@
 name: go-build
 
 # 后端编译 + 单元测试（Go 侧改动的守门人）
-# 说明：assets/bindata.go 是 go-bindata 生成物、不入库，这里用占位实现顶上，
-# 只验证「代码能不能编译、单元测试过不过」，不产出发布二进制。
+#
+# assets/bindata.go 现在是手写的 //go:embed 实现（已入库），
+# 不再需要 go-bindata 生成，也不需要占位顶替。
 on:
   push:
     paths:
@@ -21,20 +22,16 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.20"
+          go-version: "1.21"
           cache-dependency-path: service/go.sum
 
-      - name: 生成 bindata 占位
+      - name: 确认内嵌资源可编译
         run: |
-          mkdir -p assets
-          cat > assets/bindata.go <<'EOF'
-          // Code generated for CI build only. Placeholder for go-bindata output.
-          package assets
-
-          import "os"
-
-          func Asset(name string) ([]byte, error) { return os.ReadFile(name) }
-          EOF
+          set -euo pipefail
+          head -20 assets/bindata.go
+          test -f assets/conf.example.ini
+          test -f assets/version
+          test -d assets/lang
 
       - name: 编译
         run: go build ./...

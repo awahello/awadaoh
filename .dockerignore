@@ -5,3 +5,27 @@ Dockerfile
 .*
 */.*
 !.env
+
+# 构建产物，镜像里会重新生成
+dist
+dist-ssr
+
+# 上游预编译物料（Dockerfile.pro 那条老线用的，几十 MB 二进制，别塞进构建上下文）
+pro
+
+# 与本镜像无关的目录
+nav
+doc
+scripts
+.shots
+.devtmp
+
+# 后端本地运行产物
+service/awadaoh
+service/awadaoh.exe
+service/conf
+service/database
+service/uploads
+service/runtime
+service/logs
+service/web

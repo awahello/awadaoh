@@ -17,7 +17,6 @@ dist-ssr/
 # 后端运行产物
 service/awadaoh
 service/awadaoh.exe
-service/assets/bindata.go
 service/database.db
 service/conf/
 service/uploads/
@@ -69,8 +68,8 @@ coverage
 .history
 service_node
 
-bindata.go
-service/assets/bindata.go
+# bindata.go 不再忽略：现在它是手写的 //go:embed 实现（见 service/assets/bindata.go），
+# 不是 go-bindata 生成物。忽略它会让 docker build / CI 直接编不过。
 service/conf
 service/lang
 service/database
