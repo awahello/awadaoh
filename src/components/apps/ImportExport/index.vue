@@ -9,6 +9,8 @@ import { get as getAbout } from '@/api/system/about'
 import { edit as addGroup, getList as getGroupList } from '@/api/panel/itemIconGroup'
 import { addMultiple as addMultipleIcons, getListByGroupId } from '@/api/panel/itemIcon'
 import { exportBookmarks } from '@/api/panel/exportBookmarks'
+import { isBookmarkHtml, parseBookmarkHtml } from '@/utils/bookmarkHtml'
+import type { BookmarkHtmlGroup } from '@/utils/bookmarkHtml'
 
 import { t } from '@/locales'
 
@@ -28,6 +30,10 @@ const version = ref('') // 当前软件版本
 const debug = ref(false)
 
 const importObj = ref<ImportJsonResult | null> (null)
+
+// 导入来源：json = 面板自己的配置文件；html = 浏览器「导出书签」得到的 HTML
+const importMode = ref<'json' | 'html'>('json')
+const htmlGroups = ref<BookmarkHtmlGroup[]>([])
 
 // ── 导出书签 ────────────────────────────────────────
 // 导出接口要 token，浏览器地址栏带不上，所以后端把内容塞进 JSON 返回，
@@ -123,6 +129,59 @@ async function importIcons(): Promise<string | null> {
   }
 }
 
+// 浏览器书签 HTML → 分组 + 站点。
+// 走的是同一套接口（先建组拿 id，再批量加站点），只是数据源从 JSON 换成了 HTML。
+async function importHtmlGroups(): Promise<string | null> {
+  const groups = htmlGroups.value
+  if (!groups.length)
+    return '没有解析到书签'
+
+  try {
+    for (const g of groups) {
+      const createGroupResponse = await addGroup<Panel.ItemIconGroup>({
+        title: g.title,
+        sort: g.sort,
+      })
+      if (createGroupResponse.code !== 0)
+        return createGroupResponse.msg
+
+      const groupId = createGroupResponse.data?.id
+      if (!groupId)
+        continue
+
+      let addIcons: Panel.ItemInfo[] = []
+      for (let i = 0; i < g.children.length; i++) {
+        const s = g.children[i]
+        const first = (s.title || s.url || '?').trim().charAt(0).toUpperCase() || '?'
+        addIcons.push({
+          title: s.title,
+          sort: i + 1,
+          url: s.url,
+          lanUrl: '',
+          description: s.description,
+          openMethod: 2, // 新窗口打开，和浏览器书签的习惯一致
+          // 书签 HTML 里没有图标信息，先给个首字母方块，后台可以再改
+          icon: { itemType: 1, text: first },
+          itemIconGroupId: groupId,
+        })
+
+        if (addIcons.length === 50 || i === g.children.length - 1) {
+          const response = await addMultipleIcons(addIcons)
+          if (response.code !== 0)
+            return response.msg
+          addIcons = []
+        }
+      }
+    }
+    return null
+  }
+  catch (error) {
+    if (error instanceof Error)
+      return `${t('common.failed')}: ${error.message}`
+    return t('common.unknownError')
+  }
+}
+
 // 导出图标
 async function exportIcons(): Promise<IconGroup[]> {
   const iconGroups: IconGroup[] = []
@@ -184,8 +243,32 @@ function handleFileChange(options: { file: UploadFileInfo; fileList: Array<Uploa
     const reader = new FileReader()
     reader.onload = () => {
       if (reader.result) {
-        jsonData.value = reader.result as string
-        importCheck()
+        const text = reader.result as string
+        // 浏览器导出的书签 HTML 和面板自己的 JSON 是两种格式，
+        // 先认一下：是 HTML 就走 HTML 导入，别再报「配置文件格式不正确」
+        if (isBookmarkHtml(text)) {
+          htmlGroups.value = parseBookmarkHtml(text)
+          importMode.value = 'html'
+          importWarning.value = []
+          importObj.value = null
+          jsonData.value = text
+          if (!htmlGroups.value.length) {
+            ms.error('这个 HTML 里没解析到书签')
+          }
+          else {
+            const n = htmlGroups.value.reduce((a, g) => a + g.children.length, 0)
+            importItems.value = ['icons']
+            checkedItems.value = ['icons']
+            importRoundModalShow.value = true
+            ms.success(`读到 ${htmlGroups.value.length} 个分组 / ${n} 个站点`)
+          }
+        }
+        else {
+          importMode.value = 'json'
+          htmlGroups.value = []
+          jsonData.value = text
+          importCheck()
+        }
       }
       else {
         ms.error(`${t('common.failed')}: ${t('common.repeatLater')}`)
@@ -262,10 +345,12 @@ async function handleStartExport() {
 async function handleStartImport() {
   loading.value = true
   if (checkedItems.value.includes('icons')) {
-    console.log('export icons ...')
-    const errMsg = await importIcons()
-    if (errMsg !== null)
-      ms.success(`${t('common.failed')}:${errMsg}`)
+    const errMsg = importMode.value === 'html' ? await importHtmlGroups() : await importIcons()
+    if (errMsg !== null) {
+      loading.value = false
+      ms.error(`${t('common.failed')}:${errMsg}`)
+      return
+    }
   }
 
   loading.value = false
@@ -282,7 +367,7 @@ async function handleStartImport() {
     <div class="flex justify-center m-[50px]">
       <div class="m-[10px]">
         <NUpload
-          accept=".awadaoh.json,.sunpanel.json"
+          accept=".awadaoh.json,.sunpanel.json,.html,.htm"
           directory-dnd
           :default-upload="false"
           :show-file-list="false"
@@ -358,6 +443,26 @@ async function handleStartImport() {
     </div>
 
     <RoundCardModal v-model:show="importRoundModalShow" style="max-width: 400px;" :title=" $t('apps.exportImport.import')">
+      <template v-if="importMode === 'html'">
+        <div class="text-sm opacity-80" style="line-height:1.8">
+          识别到浏览器书签文件：<br>
+          <b>{{ htmlGroups.length }}</b> 个分组 /
+          <b>{{ htmlGroups.reduce((a, g) => a + g.children.length, 0) }}</b> 个站点
+        </div>
+        <div class="text-xs opacity-50 mt-[10px]" style="line-height:1.7">
+          会新建同名分组并写入站点，不会覆盖已有的分组。<br>
+          书签里没有图标信息，先按首字母生成，后台可以再改。
+        </div>
+        <NSpace justify="center">
+          <div class="mt-[30px]">
+            <NButton type="success" :loading="loading" @click="handleStartImport">
+              {{ $t('common.continue') }}
+            </NButton>
+          </div>
+        </NSpace>
+      </template>
+
+      <template v-else>
       <div v-if="importWarning.length > 0">
         <NAlert :title="$t('common.warning')" type="warning">
           <div v-for="(text, index) in importWarning " :key="index">
@@ -382,6 +487,7 @@ async function handleStartImport() {
           </NButton>
         </div>
       </NSpace>
+      </template>
     </RoundCardModal>
 
     <RoundCardModal v-model:show="exportRoundModalShow" style="max-width: 400px;" :title=" $t('apps.exportImport.export')">
