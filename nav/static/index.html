@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#090D16">
+<title>导航</title>
+<link rel="icon" href="/favicon.svg">
+<link rel="stylesheet" href="/app.css">
+<style>
+	/* ── 布局 ─────────────────────────────────────────────── */
+	.shell {
+		position: relative;
+		z-index: 1;
+		display: flex;
+		min-height: 100%;
+	}
+
+	/* ── 左侧分类栏 ───────────────────────────────────────── */
+	.side {
+		position: fixed;
+		inset: 0 auto 0 0;
+		width: var(--side-w);
+		display: flex;
+		flex-direction: column;
+		background: var(--side);
+		-webkit-backdrop-filter: blur(18px);
+		backdrop-filter: blur(18px);
+		border-right: 1px solid var(--line);
+		z-index: 40;
+	}
+
+	.brand {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		padding: 20px 18px 14px;
+		flex-shrink: 0;
+	}
+
+	.brand-mark {
+		width: 34px;
+		height: 34px;
+		border-radius: 11px;
+		background: linear-gradient(135deg, var(--brand), var(--accent));
+		display: grid;
+		place-items: center;
+		color: #fff;
+		font-size: 16px;
+		font-weight: 800;
+		box-shadow: 0 6px 16px rgba(91, 108, 255, 0.4);
+		flex-shrink: 0;
+	}
+
+	.brand-name {
+		font-size: 15px;
+		font-weight: 700;
+		letter-spacing: 0.2px;
+		line-height: 1.2;
+	}
+
+	.brand-sub {
+		font-size: 10.5px;
+		color: var(--text-3);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+	}
+
+	.cats {
+		flex: 1;
+		overflow-y: auto;
+		padding: 6px 10px 16px;
+		display: flex;
+		flex-direction: column;
+		gap: 1px;
+	}
+
+	.cat {
+		position: relative;
+		display: flex;
+		align-items: center;
+		gap: 9px;
+		padding: 9px 12px 9px 15px;
+		border-radius: 10px;
+		color: var(--text-2);
+		font-size: 13.5px;
+		font-weight: 500;
+		cursor: pointer;
+		border: 0;
+		background: transparent;
+		width: 100%;
+		text-align: left;
+		transition: background 0.16s, color 0.16s;
+	}
+
+	.cat::before {
+		content: "";
+		position: absolute;
+		left: 5px;
+		top: 50%;
+		transform: translateY(-50%);
+		width: 3px;
+		height: 0;
+		border-radius: 3px;
+		background: linear-gradient(180deg, var(--brand), var(--accent));
+		transition: height 0.2s;
+	}
+
+	.cat:hover {
+		background: rgba(91, 108, 255, 0.1);
+		color: var(--text);
+	}
+
+	.cat.is-on {
+		background: rgba(91, 108, 255, 0.17);
+		color: #fff;
+		font-weight: 600;
+	}
+
+	html[data-theme="light"] .cat.is-on {
+		color: var(--brand-lo);
+	}
+
+	.cat.is-on::before {
+		height: 17px;
+		box-shadow: 0 0 9px rgba(91, 108, 255, 0.75);
+	}
+
+	.cat-ico {
+		width: 18px;
+		text-align: center;
+		font-size: 14px;
+		flex-shrink: 0;
+		opacity: 0.9;
+	}
+
+	.cat-name {
+		flex: 1;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.cat-num {
+		font-size: 11px;
+		color: var(--text-3);
+		font-variant-numeric: tabular-nums;
+	}
+
+	.side-foot {
+		flex-shrink: 0;
+		padding: 12px 16px 16px;
+		border-top: 1px solid var(--line);
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 8px;
+	}
+
+	.side-foot .stat {
+		font-size: 11px;
+		color: var(--text-3);
+		display: flex;
+		align-items: center;
+		gap: 6px;
+	}
+
+	/* ── 主区 ─────────────────────────────────────────────── */
+	.main {
+		flex: 1;
+		margin-left: var(--side-w);
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
+	}
+
+	.top {
+		position: sticky;
+		top: 0;
+		z-index: 30;
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		padding: 16px 32px;
+		background: linear-gradient(to bottom, var(--bg) 55%, transparent);
+		-webkit-backdrop-filter: blur(10px);
+		backdrop-filter: blur(10px);
+	}
+
+	.search {
+		position: relative;
+		flex: 1;
+		max-width: 620px;
+	}
+
+	.search input {
+		width: 100%;
+		height: 42px;
+		padding: 0 176px 0 42px;
+		border: 1px solid var(--line-strong);
+		border-radius: 999px;
+		background: var(--panel);
+		color: var(--text);
+		font-size: 14px;
+		outline: none;
+		transition: border-color 0.18s, box-shadow 0.18s, background 0.18s;
+	}
+
+	.search input::placeholder {
+		color: var(--text-3);
+	}
+
+	.search input:focus {
+		border-color: var(--brand);
+		background: var(--panel-2);
+		box-shadow: 0 0 0 3px rgba(91, 108, 255, 0.16), 0 10px 26px rgba(91, 108, 255, 0.14);
+	}
+
+	.search-ico {
+		position: absolute;
+		left: 15px;
+		top: 50%;
+		transform: translateY(-50%);
+		color: var(--text-3);
+		display: grid;
+		place-items: center;
+		pointer-events: none;
+	}
+
+	.search-keys {
+		position: absolute;
+		right: 132px;
+		top: 50%;
+		transform: translateY(-50%);
+		display: flex;
+		gap: 4px;
+		align-items: center;
+		pointer-events: none;
+	}
+
+	/* 搜索引擎切换 */
+	.eng {
+		position: absolute;
+		right: 8px;
+		top: 50%;
+		transform: translateY(-50%);
+		height: 28px;
+		display: flex;
+		align-items: center;
+		gap: 6px;
+		padding: 0 10px 0 11px;
+		border-radius: 999px;
+		border: 1px solid var(--line-strong);
+		background: var(--panel-2);
+		color: var(--text-2);
+		font-size: 12px;
+		cursor: pointer;
+		transition: color 0.16s, border-color 0.16s, background 0.16s;
+		max-width: 120px;
+	}
+
+	.eng:hover {
+		color: var(--text);
+		border-color: var(--brand);
+		background: var(--panel-3);
+	}
+
+	.eng span {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.eng svg { flex: 0 0 auto; opacity: .6; }
+
+	.eng-menu {
+		position: absolute;
+		right: 0;
+		top: calc(100% + 8px);
+		min-width: 200px;
+		padding: 6px;
+		border-radius: 14px;
+		background: var(--panel);
+		border: 1px solid var(--line-strong);
+		box-shadow: 0 20px 44px rgba(0, 0, 0, 0.5);
+		display: none;
+		z-index: 60;
+	}
+
+	.eng-menu.show { display: block; }
+
+	.eng-item {
+		display: flex;
+		align-items: center;
+		gap: 9px;
+		width: 100%;
+		padding: 8px 10px;
+		border-radius: 9px;
+		border: 0;
+		background: none;
+		color: var(--text-2);
+		font-size: 13px;
+		cursor: pointer;
+		text-align: left;
+	}
+
+	.eng-item:hover { background: var(--panel-2); color: var(--text); }
+
+	.eng-item.is-on { color: var(--brand-hi); }
+
+	.eng-item .k { margin-left: auto; font-size: 11px; color: var(--text-3); }
+
+	.eng-item .tick { font-size: 11px; color: var(--accent); }
+
+	.top-actions {
+		display: flex;
+		gap: 8px;
+		align-items: center;
+		margin-left: auto;
+	}
+
+	.icon-btn {
+		width: 38px;
+		height: 38px;
+		display: grid;
+		place-items: center;
+		border: 1px solid var(--line-strong);
+		border-radius: 11px;
+		background: var(--panel);
+		color: var(--text-2);
+		cursor: pointer;
+		transition: background 0.16s, color 0.16s, border-color 0.16s;
+	}
+
+	.icon-btn:hover {
+		background: var(--panel-2);
+		color: var(--text);
+		border-color: var(--brand);
+	}
+
+	.content {
+		flex: 1;
+		padding: 8px 32px 40px;
+	}
+
+	.group {
+		margin-bottom: 34px;
+		scroll-margin-top: 80px;
+	}
+
+	.group-head {
+		display: flex;
+		align-items: center;
+		gap: 9px;
+		margin-bottom: 16px;
+	}
+
+	.group-bar {
+		width: 3px;
+		height: 18px;
+		border-radius: 3px;
+		background: linear-gradient(180deg, var(--brand), var(--accent));
+		box-shadow: 0 0 10px rgba(91, 108, 255, 0.6);
+	}
+
+	.group-name {
+		font-size: 15px;
+		font-weight: 700;
+		letter-spacing: 0.4px;
+	}
+
+	.group-count {
+		font-size: 11px;
+		color: var(--text-3);
+		margin-left: 2px;
+	}
+
+	.grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+		gap: 12px;
+	}
+
+	/* ── 站点卡 ───────────────────────────────────────────── */
+	.site {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 9px;
+		padding: 16px 8px 12px;
+		border-radius: var(--r);
+		border: 1px solid transparent;
+		background: var(--panel);
+		box-shadow: var(--shadow-1);
+		cursor: pointer;
+		transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+			box-shadow 0.18s, border-color 0.18s, background 0.18s;
+		overflow: hidden;
+	}
+
+	.site:hover {
+		transform: translateY(-4px);
+		background: var(--panel-2);
+		border-color: rgba(91, 108, 255, 0.38);
+		box-shadow: var(--shadow-brand);
+	}
+
+	.site-ico {
+		width: 44px;
+		height: 44px;
+		border-radius: 12px;
+		display: grid;
+		place-items: center;
+		overflow: hidden;
+		background: var(--panel-3);
+		flex-shrink: 0;
+	}
+
+	.site-ico img {
+		width: 28px;
+		height: 28px;
+		object-fit: contain;
+		display: block;
+	}
+
+	.site-ico .letter {
+		width: 100%;
+		height: 100%;
+		display: grid;
+		place-items: center;
+		color: #fff;
+		font-size: 17px;
+		font-weight: 700;
+		letter-spacing: 0;
+	}
+
+	.site-name {
+		max-width: 100%;
+		font-size: 12.5px;
+		font-weight: 500;
+		text-align: center;
+		line-height: 1.35;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		-webkit-box-orient: vertical;
+		word-break: break-word;
+	}
+
+	.foot {
+		padding: 16px 32px 24px;
+		border-top: 1px solid var(--line);
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+		color: var(--text-3);
+		font-size: 12px;
+		flex-wrap: wrap;
+	}
+
+	.foot a {
+		color: var(--text-2);
+		font-weight: 500;
+		transition: color 0.16s;
+	}
+
+	.foot a:hover {
+		color: var(--brand-hi);
+	}
+
+	.foot-brand {
+		display: flex;
+		align-items: center;
+		gap: 7px;
+	}
+
+	/* ── 窄屏 ─────────────────────────────────────────────── */
+	@media (max-width: 880px) {
+		.side {
+			inset: 0 0 auto 0;
+			width: 100%;
+			height: auto;
+			flex-direction: column;
+			border-right: 0;
+			border-bottom: 1px solid var(--line);
+		}
+
+		.brand {
+			padding: 14px 16px 8px;
+		}
+
+		.cats {
+			flex-direction: row;
+			overflow-x: auto;
+			overflow-y: hidden;
+			gap: 6px;
+			padding: 0 12px 12px;
+		}
+
+		.cat {
+			width: auto;
+			flex-shrink: 0;
+			padding: 7px 13px;
+			border: 1px solid var(--line);
+			border-radius: 999px;
+			background: var(--panel);
+		}
+
+		.cat::before {
+			display: none;
+		}
+
+		.cat-num {
+			display: none;
+		}
+
+		.side-foot {
+			display: none;
+		}
+
+		.main {
+			margin-left: 0;
+			padding-top: 108px;
+		}
+
+		.top {
+			padding: 12px 16px;
+			background: var(--bg);
+		}
+
+		.content {
+			padding: 8px 16px 32px;
+		}
+
+		.grid {
+			grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+			gap: 10px;
+		}
+
+		.foot {
+			padding: 14px 16px 22px;
+		}
+
+		.search-keys {
+			display: none;
+		}
+
+		.search input {
+			padding-right: 16px;
+		}
+	}
+</style>
+</head>
+<body>
+
+<div class="shell">
+	<aside class="side">
+		<div class="brand">
+			<div class="brand-mark">A</div>
+			<div>
+				<div class="brand-name" id="brandName">导航</div>
+				<div class="brand-sub" id="brandSub">SELF-HOSTED</div>
+			</div>
+		</div>
+		<nav class="cats" id="cats"></nav>
+		<div class="side-foot">
+			<span class="stat"><span class="dot"></span><span id="statText">加载中</span></span>
+			<button class="icon-btn" id="themeBtn" title="切换深色 / 浅色" style="width:30px;height:30px;border-radius:9px">◐</button>
+		</div>
+	</aside>
+
+	<main class="main">
+		<header class="top">
+			<div class="search">
+				<span class="search-ico">
+					<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+						<circle cx="11" cy="11" r="7"></circle>
+						<line x1="16.5" y1="16.5" x2="21" y2="21"></line>
+					</svg>
+				</span>
+				<input id="q" type="text" placeholder="搜索站点，回车直接打开" autocomplete="off" spellcheck="false">
+				<span class="search-keys"><kbd>/</kbd></span>
+				<button class="eng" id="engBtn" title="选择搜索引擎">
+					<span id="engName">搜索</span>
+					<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
+						<path d="M6 9l6 6 6-6"></path>
+					</svg>
+				</button>
+				<div class="eng-menu" id="engMenu"></div>
+			</div>
+			<div class="top-actions">
+				<button class="icon-btn" id="themeBtn2" title="切换深色 / 浅色">◐</button>
+				<a class="icon-btn" href="/admin" title="后台管理">
+					<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<circle cx="12" cy="12" r="3.2"></circle>
+						<path d="M12 2.6v2.2M12 19.2v2.2M4.4 12H2.2M21.8 12h-2.2M6.3 6.3 4.7 4.7M19.3 19.3l-1.6-1.6M17.7 6.3l1.6-1.6M4.7 19.3l1.6-1.6"></path>
+					</svg>
+				</a>
+			</div>
+		</header>
+
+		<div class="content" id="content"></div>
+
+		<footer class="foot">
+			<span class="foot-brand">
+				<span class="dot"></span>
+				<a id="footLink" href="https://www.akkdiy.cn" target="_blank" rel="noopener">www.akkdiy.cn</a>
+			</span>
+			<span id="footMeta"></span>
+		</footer>
+	</main>
+</div>
+
+<div id="toast"></div>
+
+<script>
+(function () {
+	'use strict';
+
+	var CFG = null;
+	var activeGroup = 'all';
+	var q = '';
+	var firstMatch = null;
+
+	var $ = function (s) { return document.querySelector(s); };
+	var content = $('#content');
+	var catsBox = $('#cats');
+	var input = $('#q');
+
+	/* ── 小工具 ── */
+	function toast(msg, isErr) {
+		var t = $('#toast');
+		t.textContent = msg;
+		t.className = isErr ? 'show err' : 'show';
+		clearTimeout(toast._t);
+		toast._t = setTimeout(function () { t.className = ''; }, 2200);
+	}
+
+	function hostOf(url) {
+		try { return new URL(url).hostname.replace(/^www\./, ''); }
+		catch (e) { return ''; }
+	}
+
+	function hue(str) {
+		var h = 0;
+		for (var i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) % 360;
+		return h;
+	}
+
+	function iconFor(site) {
+		if (site.icon) return site.icon;
+		var h = hostOf(site.url);
+		return h ? 'https://favicon.im/' + h + '?larger=true' : '';
+	}
+
+	/* ── 搜索引擎 ── */
+	var engines = [];
+	var engineId = '';
+
+	function loadEngines() {
+		engines = (CFG.engines && CFG.engines.length) ? CFG.engines.slice() : [];
+		if (!engines.length) {
+			engines = [{ id: 'bing', name: 'Bing', url: CFG.searchEngine || 'https://www.bing.com/search?q=%s' }];
+		}
+		var saved = '';
+		try { saved = localStorage.getItem('ak-nav-engine') || ''; } catch (e) {}
+		var prefer = saved || CFG.engine || engines[0].id;
+		var hit = null;
+		engines.forEach(function (e) { if (e.id === prefer) hit = e; });
+		engineId = (hit || engines[0]).id;
+		renderEngineMenu();
+	}
+
+	function curEngine() {
+		var e = null;
+		engines.forEach(function (x) { if (x.id === engineId) e = x; });
+		return e || engines[0] || { name: '搜索', url: 'https://www.bing.com/search?q=%s' };
+	}
+
+	function renderEngineMenu() {
+		var cur = curEngine();
+		var nameEl = $('#engName');
+		if (nameEl) nameEl.textContent = cur.name || '搜索';
+		var menu = $('#engMenu');
+		if (!menu) return;
+		menu.innerHTML = engines.map(function (e) {
+			return '<button class="eng-item' + (e.id === engineId ? ' is-on' : '') + '" data-eng="' + esc(e.id) + '">'
+				+ '<span>' + esc(e.name) + '</span>'
+				+ (e.id === engineId ? '<span class="tick">✓ 默认</span>' : '')
+				+ '</button>';
+		}).join('');
+		[].forEach.call(menu.querySelectorAll('[data-eng]'), function (b) {
+			b.addEventListener('click', function () {
+				engineId = b.dataset.eng;
+				try { localStorage.setItem('ak-nav-engine', engineId); } catch (e) {}
+				menu.classList.remove('show');
+				renderEngineMenu();
+				input.focus();
+			});
+		});
+	}
+
+	function searchWith(q) {
+		var tpl = curEngine().url || 'https://www.bing.com/search?q=%s';
+		if (tpl.indexOf('%s') < 0) tpl += '%s';
+		window.open(tpl.replace('%s', encodeURIComponent(q)), '_blank', 'noopener');
+	}
+
+	/* ── 主题 ── */
+	function applyTheme(t) {
+		document.documentElement.setAttribute('data-theme', t);
+		try { localStorage.setItem('ak-nav-theme', t); } catch (e) {}
+		var meta = document.querySelector('meta[name=theme-color]');
+		if (meta) meta.setAttribute('content', t === 'light' ? '#F5F7FC' : '#090D16');
+	}
+
+	function toggleTheme() {
+		var cur = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+		applyTheme(cur);
+	}
+
+	/* ── 数据 ── */
+	function matchSite(s) {
+		if (!q) return true;
+		var k = q.toLowerCase();
+		return (s.title || '').toLowerCase().indexOf(k) >= 0
+			|| (s.url || '').toLowerCase().indexOf(k) >= 0
+			|| (s.desc || '').toLowerCase().indexOf(k) >= 0;
+	}
+
+	function shownGroups() {
+		return (CFG.groups || []).filter(function (g) { return !g.hidden; });
+	}
+
+	function visibleGroups() {
+		var gs = shownGroups();
+		if (q) {
+			return gs.map(function (g) {
+				return { id: g.id, name: g.name, icon: g.icon, sites: (g.sites || []).filter(matchSite) };
+			}).filter(function (g) { return g.sites.length; });
+		}
+		if (activeGroup !== 'all') {
+			return gs.filter(function (g) { return g.id === activeGroup; });
+		}
+		return gs;
+	}
+
+	function totalSites() {
+		return shownGroups().reduce(function (n, g) { return n + (g.sites || []).length; }, 0);
+	}
+
+	/* ── 渲染 ── */
+	function renderCats() {
+		var gs = shownGroups();
+		var html = '<button class="cat' + (activeGroup === 'all' ? ' is-on' : '') + '" data-g="all">'
+			+ '<span class="cat-ico">◎</span><span class="cat-name">全部</span>'
+			+ '<span class="cat-num">' + totalSites() + '</span></button>';
+
+		gs.forEach(function (g) {
+			html += '<button class="cat' + (activeGroup === g.id ? ' is-on' : '') + '" data-g="' + g.id + '">'
+				+ '<span class="cat-ico">' + (g.icon || '·') + '</span>'
+				+ '<span class="cat-name">' + esc(g.name) + '</span>'
+				+ '<span class="cat-num">' + (g.sites || []).length + '</span></button>';
+		});
+		catsBox.innerHTML = html;
+
+		[].forEach.call(catsBox.querySelectorAll('.cat'), function (b) {
+			b.addEventListener('click', function () {
+				activeGroup = b.dataset.g;
+				q = '';
+				input.value = '';
+				renderCats();
+				renderSites();
+				var cur = catsBox.querySelector('.cat.is-on');
+				if (cur && cur.scrollIntoView) cur.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+			});
+		});
+	}
+
+	function esc(s) {
+		return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+			return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+		});
+	}
+
+	function renderSites() {
+		var gs = visibleGroups();
+		firstMatch = null;
+
+		if (!gs.length) {
+			content.innerHTML = '<div class="empty"><strong>没有匹配的站点</strong>'
+				+ (q ? '换个关键词试试，或到 <a href="/admin" style="color:var(--brand-hi)">后台</a> 添加' : '到 <a href="/admin" style="color:var(--brand-hi)">后台</a> 添加分组和站点')
+				+ '</div>';
+			return;
+		}
+
+		var html = '';
+		gs.forEach(function (g) {
+			html += '<section class="group" id="g-' + g.id + '">'
+				+ '<div class="group-head"><span class="group-bar"></span>'
+				+ '<span class="group-name">' + esc(g.name) + '</span>'
+				+ '<span class="group-count">' + g.sites.length + '</span></div>'
+				+ '<div class="grid">';
+
+			g.sites.forEach(function (s) {
+				var icon = iconFor(s);
+				var h = hue(s.title || s.url);
+				var inner = icon
+					? '<img src="' + esc(icon) + '" alt="" loading="lazy" referrerpolicy="no-referrer"'
+						+ ' onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'grid\'">'
+						+ '<span class="letter" style="display:none;background:hsl(' + h + ',62%,48%)">'
+						+ esc((s.title || '?').trim().charAt(0).toUpperCase()) + '</span>'
+					: '<span class="letter" style="background:hsl(' + h + ',62%,48%)">'
+						+ esc((s.title || '?').trim().charAt(0).toUpperCase()) + '</span>';
+
+				if (!firstMatch) firstMatch = s.url;
+
+				html += '<a class="site" href="' + esc(s.url) + '" target="_blank" rel="noopener"'
+					+ ' title="' + esc((s.title || '') + '\n' + (s.url || '') + (s.desc ? '\n' + s.desc : '')) + '">'
+					+ '<span class="site-ico">' + inner + '</span>'
+					+ '<span class="site-name">' + esc(s.title || hostOf(s.url)) + '</span>'
+					+ '</a>';
+			});
+
+			html += '</div></section>';
+		});
+
+		content.innerHTML = html;
+	}
+
+	function renderAll() {
+		$('#brandName').textContent = CFG.title || '导航';
+		$('#brandSub').textContent = CFG.subtitle || 'SELF-HOSTED';
+		document.title = (CFG.title || '导航') + (CFG.subtitle ? ' · ' + CFG.subtitle : '');
+		$('#footLink').textContent = CFG.footer || 'www.akkdiy.cn';
+		$('#footLink').href = CFG.footerUrl || ('https://' + (CFG.footer || 'www.akkdiy.cn'));
+		$('#footMeta').textContent = shownGroups().length + ' 个分类 · ' + totalSites() + ' 个站点';
+		$('#statText').textContent = totalSites() + ' 个站点';
+		renderCats();
+		renderSites();
+	}
+
+	/* ── 搜索 ── */
+	var deb = null;
+	input.addEventListener('input', function () {
+		clearTimeout(deb);
+		deb = setTimeout(function () {
+			q = input.value.trim();
+			renderSites();
+		}, 90);
+	});
+
+	input.addEventListener('keydown', function (e) {
+		if (e.key === 'Enter') {
+			e.preventDefault();
+			q = input.value.trim();
+			if (!q) return;
+			// 精确命中站点 → 直接打开
+			var all = [];
+			shownGroups().forEach(function (g) {
+				(g.sites || []).forEach(function (s) {
+					if (matchSite(s)) all.push(s);
+				});
+			});
+			if (all.length) {
+				window.open(all[0].url, '_blank', 'noopener');
+			} else {
+				searchWith(q);
+			}
+		} else if (e.key === 'Escape') {
+			input.value = '';
+			q = '';
+			renderSites();
+			input.blur();
+		}
+	});
+
+	document.addEventListener('keydown', function (e) {
+		if (e.key === '/' && document.activeElement !== input) {
+			e.preventDefault();
+			input.focus();
+			input.select();
+		}
+	});
+
+	/* ── 启动 ── */
+	$('#themeBtn').addEventListener('click', toggleTheme);
+	$('#themeBtn2').addEventListener('click', toggleTheme);
+
+	var engBtn = $('#engBtn');
+	var engMenu = $('#engMenu');
+	engBtn.addEventListener('click', function (e) {
+		e.stopPropagation();
+		engMenu.classList.toggle('show');
+	});
+	engMenu.addEventListener('click', function (e) { e.stopPropagation(); });
+	document.addEventListener('click', function () { engMenu.classList.remove('show'); });
+	document.addEventListener('keydown', function (e) {
+		if (e.key === 'Escape') engMenu.classList.remove('show');
+	});
+
+	try {
+		var saved = localStorage.getItem('ak-nav-theme');
+		if (saved) applyTheme(saved);
+	} catch (e) {}
+
+	fetch('/api/config', { cache: 'no-store' })
+		.then(function (r) { return r.json(); })
+		.then(function (d) {
+			if (!d.ok) throw new Error('bad');
+			CFG = d.config;
+			if (CFG.theme && !localStorage.getItem('ak-nav-theme')) applyTheme(CFG.theme);
+			loadEngines();
+			renderAll();
+		})
+		.catch(function () {
+			content.innerHTML = '<div class="empty"><strong>数据加载失败</strong>检查服务是否正常运行</div>';
+			toast('加载失败', true);
+		});
+})();
+</script>
+</body>
+</html>

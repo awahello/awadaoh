@@ -14,12 +14,98 @@
 
 ---
 
+## 两种形态，选一个用
+
+| | `nav/` 极简导航站 | `pro/` + `service/` 完整面板 |
+|---|---|---|
+| 定位 | 打开就是导航页，后台改配置 | 带登录、系统监控、Docker 面板的完整面板 |
+| 依赖 | Python 3.8+ 或一个 15 MB 镜像 | Go 二进制 + 前端包 |
+| 上手 | `docker compose up -d`，30 秒 | 拉镜像 / 自己构建 |
+| 适合 | 只想要一个好看的自用起始页 | 想要 NAS 控制台那一套 |
+
+---
+
+## 极简导航站（`nav/`）
+
+<img src="./nav/doc/home.png" alt="极简导航站首页" width="100%" />
+
+- **打开网页直接就是导航**，没有登录墙
+- **分类 + 图标网格**，左侧分类点一下就筛；搜索框回车：站内有匹配直接跳，没有就走搜索引擎
+- **搜索引擎可切可换**：内置 Bing / Google / 百度 / DuckDuckGo / GitHub / 哔哩哔哩，后台能增删改、设默认
+- **直接导入 Chrome 书签**：导出的 `bookmarks.html` 拖进去，或者直接选浏览器 profile 里的 `Bookmarks`（JSON）
+- **和 Google 书签自动同步**：盯着本地 `Bookmarks` 文件，收藏夹一变自动重导（见下）
+- **个别分类可以隐藏**：后台点眼睛，前台不显示，配置里仍然保留
+- **设置全在后台**：`/admin`，密码进去改标题、页脚、分组、站点、搜索引擎
+- 页脚默认显示 `www.akkdiy.cn`
+
+<table>
+<tr>
+<td><img src="./nav/doc/admin-groups.png" alt="分组管理" /></td>
+<td><img src="./nav/doc/admin-sync.png" alt="自动同步" /></td>
+</tr>
+</table>
+
+### 三条命令跑起来
+
+```bash
+cd nav
+mkdir -p data
+PORT=8080 python server.py
+# 前台 http://IP:8080/      后台 http://IP:8080/admin
+```
+
+### 或者 Docker
+
+```bash
+cd nav
+ADMIN_PASS='admin123' docker compose up -d
+# 前台 http://IP:8080/      后台 http://IP:8080/admin
+```
+
+镜像自带健康检查，数据落在 `nav/data/config.json`，备份就是拷这一个文件。
+
+### 和 Google 书签自动同步是怎么做的
+
+Chrome 登录 Google 账号后的书签，最终都会落到本地这个文件：
+
+| 系统 | 路径 |
+|---|---|
+| Windows | `C:\Users\YOU\AppData\Local\Google\Chrome\User Data\Default\Bookmarks` |
+| macOS | `~/Library/Application Support/Google/Chrome/Default/Bookmarks` |
+| Linux | `~/.config/google-chrome/Default/Bookmarks` |
+
+Google 同步本身只是不停改这个 JSON。所以导航站**不需要任何 Google 授权**，只要盯着它：
+
+1. 后台 → 「🔁 自动同步」→ 填路径（留空会自动去找本机 Chrome / Edge）
+2. 打开「自动同步」，检查间隔选 30 秒 ~ 6 小时
+3. 之后收藏夹加减，这边最多一个间隔就跟着变
+
+容器里跑的时候要把 profile 目录挂进去：
+
+```yaml
+volumes:
+  - ./data:/app/data
+  - "C:/Users/YOU/AppData/Local/Google/Chrome/User Data/Default:/bookmarks:ro"
+environment:
+  BOOKMARK_FILE: /bookmarks/Bookmarks
+```
+
+同步是**按分组名合并**的：同名分组会保留你手设的图标、排序和隐藏状态，不会每次同步都被重置。想彻底以书签为准就选「整体替换」。
+
+### 分类隐藏
+
+后台「🗂 分组」每一行右边的眼睛：点一下变 `🙈`，这个分类在前台（含左侧分类栏、搜索、页脚统计）就都不出现，但配置还在，再点一下就回来。
+
+---
+
 ## 默认账号
 
 | 项 | 值 |
 |---|---|
 | 用户名 | `admin` |
-| 密码 | `admin` |
+| 密码 | `admin123` |
+
+> 上面是 `pro/` 完整面板的默认账号。`nav/` 极简版只有一个密码，默认同样是 `admin123`，可用 `ADMIN_PASS` 覆盖。
 
 首次登录后请到「设置 → 账号」修改密码。
 

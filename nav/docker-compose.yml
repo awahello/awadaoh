@@ -1,0 +1,22 @@
+services:
+  nav:
+    image: ghcr.io/awahello/akkdaoh-nav:latest
+    # 想本地构建就注掉上面一行，改成下面两行
+    # build:
+    #   context: .
+    container_name: akkdaoh-nav
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      TZ: Asia/Shanghai
+      ADMIN_PASS: "admin123"
+      # 自动同步：把下面的路径指到挂进来的 Bookmarks 文件（容器内路径）
+      BOOKMARK_FILE: /bookmarks/Bookmarks
+    volumes:
+      - ./data:/app/data
+      # 想把本机 Chrome 书签挂进来就打开这一行（按自己系统改左边路径）
+      # Windows: C:/Users/YOU/AppData/Local/Google/Chrome/User Data/Default
+      # macOS:   ~/Library/Application Support/Google/Chrome/Default
+      # Linux:   ~/.config/google-chrome/Default
+      - "${CHROME_PROFILE:-./bookmarks}:/bookmarks:ro"

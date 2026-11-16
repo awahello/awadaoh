@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090D16">
+<title>后台 · 导航</title>
+<link rel="icon" href="/favicon.svg">
+<link rel="stylesheet" href="/app.css">
+<style>
+	body { overflow-y: scroll; }
+
+	.login-wrap {
+		min-height: 100vh;
+		display: grid;
+		place-items: center;
+		padding: 24px;
+		position: relative;
+		z-index: 1;
+	}
+
+	.login-card {
+		width: 100%;
+		max-width: 340px;
+		padding: 30px 26px;
+		border-radius: var(--r-lg);
+		background: var(--panel);
+		border: 1px solid var(--line);
+		box-shadow: var(--shadow-2);
+	}
+
+	.login-card h1 {
+		margin: 0 0 4px;
+		font-size: 19px;
+	}
+
+	.login-card p {
+		margin: 0 0 22px;
+		color: var(--text-3);
+		font-size: 12.5px;
+	}
+
+	.login-card .field { margin-bottom: 12px; }
+
+	.login-card .btn { width: 100%; height: 40px; }
+
+	/* ── 后台布局 ── */
+	.wrap {
+		position: relative;
+		z-index: 1;
+		display: flex;
+		min-height: 100vh;
+	}
+
+	.side {
+		position: fixed;
+		inset: 0 auto 0 0;
+		width: 208px;
+		display: flex;
+		flex-direction: column;
+		background: var(--side);
+		-webkit-backdrop-filter: blur(18px);
+		backdrop-filter: blur(18px);
+		border-right: 1px solid var(--line);
+	}
+
+	.brand {
+		display: flex;
+		align-items: center;
+		gap: 9px;
+		padding: 18px 16px 16px;
+	}
+
+	.brand-mark {
+		width: 30px;
+		height: 30px;
+		border-radius: 10px;
+		background: linear-gradient(135deg, var(--brand), var(--accent));
+		display: grid;
+		place-items: center;
+		color: #fff;
+		font-weight: 800;
+		font-size: 14px;
+	}
+
+	.nav {
+		flex: 1;
+		padding: 4px 8px;
+		display: flex;
+		flex-direction: column;
+		gap: 2px;
+	}
+
+	.tab {
+		display: flex;
+		align-items: center;
+		gap: 9px;
+		padding: 9px 12px;
+		border-radius: 9px;
+		color: var(--text-2);
+		font-size: 13.5px;
+		font-weight: 500;
+		cursor: pointer;
+		border: 0;
+		background: transparent;
+		text-align: left;
+		transition: background 0.15s, color 0.15s;
+	}
+
+	.tab:hover { background: var(--panel-2); color: var(--text); }
+	.tab.is-on { background: rgba(91, 108, 255, 0.17); color: var(--text); font-weight: 600; }
+
+	.nav-foot {
+		padding: 12px;
+		border-top: 1px solid var(--line);
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+	}
+
+	.main {
+		flex: 1;
+		margin-left: 208px;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+	}
+
+	.bar {
+		position: sticky;
+		top: 0;
+		z-index: 20;
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		padding: 16px 28px;
+		background: linear-gradient(to bottom, var(--bg) 60%, transparent);
+		-webkit-backdrop-filter: blur(10px);
+		backdrop-filter: blur(10px);
+	}
+
+	.bar h2 {
+		margin: 0;
+		font-size: 17px;
+		font-weight: 700;
+	}
+
+	.bar .spacer { flex: 1; }
+
+	.body { padding: 8px 28px 60px; }
+
+	.card {
+		background: var(--panel);
+		border: 1px solid var(--line);
+		border-radius: var(--r);
+		padding: 18px;
+		margin-bottom: 16px;
+	}
+
+	.card h3 {
+		margin: 0 0 14px;
+		font-size: 13.5px;
+		font-weight: 700;
+		color: var(--text);
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+
+	.card h3 .hint { font-weight: 400; }
+
+	.row {
+		display: grid;
+		grid-template-columns: 116px 1fr;
+		gap: 10px 14px;
+		align-items: center;
+		margin-bottom: 12px;
+	}
+
+	.row:last-child { margin-bottom: 0; }
+
+	.row > label {
+		color: var(--text-2);
+		font-size: 12.5px;
+	}
+
+	/* 分组 / 站点行 */
+	.g-row {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		padding: 8px;
+		border-radius: 10px;
+		border: 1px solid var(--line);
+		background: var(--panel-2);
+		margin-bottom: 8px;
+	}
+
+	.g-row .ico-in {
+		width: 42px;
+		text-align: center;
+		height: 34px;
+	}
+
+	.g-row .name-in { flex: 1; height: 34px; min-width: 90px; }
+
+	.g-row > .btn { flex: 0 0 auto; min-width: 40px; }
+
+	.g-row > .field { min-width: 0; }
+
+	.g-row.is-hidden { opacity: .52; border-style: dashed; }
+
+	.eye {
+		width: 34px;
+		height: 34px;
+		border-radius: 9px;
+		border: 1px solid var(--line);
+		background: var(--panel-3);
+		color: var(--text-2);
+		cursor: pointer;
+		font-size: 15px;
+		line-height: 1;
+		flex: 0 0 auto;
+	}
+
+	.eye:hover { color: var(--text); border-color: var(--brand); }
+
+	.eye.is-off { color: #FF8A8A; border-color: rgba(255, 138, 138, .35); }
+
+	.badge-sync {
+		font-size: 10.5px;
+		padding: 1px 7px;
+		border-radius: 20px;
+		background: rgba(34, 211, 197, .14);
+		color: var(--accent);
+		border: 1px solid rgba(34, 211, 197, .3);
+		flex: 0 0 auto;
+	}
+
+	.switch {
+		display: inline-flex;
+		align-items: center;
+		gap: 9px;
+		cursor: pointer;
+		user-select: none;
+	}
+
+	.switch input { display: none; }
+
+	.switch i {
+		width: 40px;
+		height: 22px;
+		border-radius: 20px;
+		background: var(--panel-3);
+		border: 1px solid var(--line);
+		position: relative;
+		transition: .18s;
+	}
+
+	.switch i::after {
+		content: '';
+		position: absolute;
+		top: 2px;
+		left: 2px;
+		width: 16px;
+		height: 16px;
+		border-radius: 50%;
+		background: #8C97B8;
+		transition: .18s;
+	}
+
+	.switch input:checked + i { background: rgba(91, 108, 255, .35); border-color: var(--brand); }
+
+	.switch input:checked + i::after { transform: translateX(18px); background: var(--brand-hi); }
+
+	.s-row {
+		display: grid;
+		grid-template-columns: 34px 1.1fr 1.8fr 1fr 66px;
+		gap: 8px;
+		align-items: center;
+		padding: 7px 8px;
+		border-radius: 9px;
+		border: 1px solid var(--line);
+		background: var(--panel-2);
+		margin-bottom: 6px;
+	}
+
+	.s-row .field { height: 32px; font-size: 12.5px; }
+
+	.s-row .mini {
+		width: 26px;
+		height: 26px;
+		border-radius: 7px;
+		display: grid;
+		place-items: center;
+		background: var(--panel-3);
+		font-size: 11px;
+		color: var(--text-3);
+		flex-shrink: 0;
+	}
+
+	.move-btns { display: flex; gap: 2px; }
+
+	.move-btns button {
+		width: 22px;
+		height: 26px;
+		border: 1px solid var(--line);
+		border-radius: 6px;
+		background: var(--panel);
+		color: var(--text-3);
+		cursor: pointer;
+		font-size: 10px;
+		line-height: 1;
+	}
+
+	.move-btns button:hover { color: var(--text); background: var(--panel-3); }
+
+	.drop {
+		border: 1.5px dashed var(--line-strong);
+		border-radius: var(--r);
+		padding: 30px 20px;
+		text-align: center;
+		color: var(--text-3);
+		cursor: pointer;
+		transition: border-color 0.16s, background 0.16s;
+	}
+
+	.drop:hover, .drop.hot {
+		border-color: var(--brand);
+		background: rgba(91, 108, 255, 0.06);
+		color: var(--text-2);
+	}
+
+	.drop strong { display: block; margin-bottom: 6px; color: var(--text); font-size: 14px; }
+
+	.import-preview { margin-top: 16px; }
+
+	.pv-group {
+		border: 1px solid var(--line);
+		border-radius: 10px;
+		padding: 10px 12px;
+		margin-bottom: 8px;
+		background: var(--panel-2);
+	}
+
+	.pv-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		font-size: 13px;
+		font-weight: 600;
+		margin-bottom: 6px;
+	}
+
+	.pv-list {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+		font-size: 11.5px;
+		color: var(--text-3);
+	}
+
+	.pv-list span {
+		padding: 2px 7px;
+		border-radius: 5px;
+		background: var(--panel-3);
+		max-width: 160px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.tip {
+		padding: 10px 12px;
+		border-radius: 9px;
+		background: rgba(91, 108, 255, 0.09);
+		border: 1px solid rgba(91, 108, 255, 0.22);
+		color: var(--text-2);
+		font-size: 12.5px;
+		line-height: 1.6;
+		margin-bottom: 14px;
+	}
+
+	.tip b { color: var(--text); }
+
+	table.kv { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+	table.kv td { padding: 5px 0; color: var(--text-2); }
+	table.kv td:first-child { width: 110px; color: var(--text-3); }
+	table.kv code { font-family: var(--mono); font-size: 11.5px; color: var(--accent); }
+
+	@media (max-width: 900px) {
+		.side { position: static; width: 100%; inset: auto; flex-direction: row; align-items: center; border-right: 0; border-bottom: 1px solid var(--line); overflow-x: auto; }
+		.brand { padding: 10px 12px; flex-shrink: 0; }
+		.brand span.brand-txt { display: none; }
+		.nav { flex-direction: row; gap: 4px; padding: 8px; }
+		.nav-foot { flex-direction: row; padding: 8px; border-top: 0; }
+		.wrap { flex-direction: column; }
+		.main { margin-left: 0; }
+		.bar { padding: 12px 16px; }
+		.body { padding: 8px 16px 50px; }
+		.row { grid-template-columns: 1fr; gap: 4px; }
+		.s-row { grid-template-columns: 1fr; gap: 6px; }
+	}
+</style>
+</head>
+<body>
+
+<div class="login-wrap" id="loginView" style="display:none">
+	<form class="login-card" id="loginForm">
+		<h1>后台登录</h1>
+		<p>改分组、改站点、导入书签</p>
+		<input class="field" id="pw" type="password" placeholder="管理密码" autocomplete="current-password">
+		<button class="btn btn-primary" type="submit">进入</button>
+		<p style="margin:14px 0 0;text-align:center"><a href="/" style="color:var(--text-3);font-size:12px">← 返回导航</a></p>
+	</form>
+</div>
+
+<div class="wrap" id="appView" style="display:none">
+	<aside class="side">
+		<div class="brand">
+			<div class="brand-mark">A</div>
+			<span class="brand-txt" style="font-size:14px;font-weight:700">后台</span>
+		</div>
+		<nav class="nav" id="tabs">
+			<button class="tab is-on" data-tab="settings">⚙️ 基本设置</button>
+			<button class="tab" data-tab="groups">🗂 分组</button>
+			<button class="tab" data-tab="sites">🔖 站点</button>
+			<button class="tab" data-tab="import">📥 导入书签</button>
+			<button class="tab" data-tab="sync">🔁 自动同步</button>
+		</nav>
+		<div class="nav-foot">
+			<a class="btn btn-sm" href="/" target="_blank">打开导航 ↗</a>
+			<button class="btn btn-sm btn-ghost" id="logoutBtn">退出登录</button>
+		</div>
+	</aside>
+
+	<main class="main">
+		<header class="bar">
+			<h2 id="tabTitle">基本设置</h2>
+			<span class="spacer"></span>
+			<button class="btn btn-ghost btn-sm" id="reloadBtn">重新载入</button>
+			<button class="btn btn-primary" id="saveBtn">保存</button>
+		</header>
+		<div class="body" id="body"></div>
+	</main>
+</div>
+
+<div id="toast"></div>
+
+<script>
+(function () {
+	'use strict';
+
+	var TOKEN = sessionStorage.getItem('ak-nav-token') || '';
+	var CFG = null;
+	var tab = 'settings';
+	var importPreview = null;
+
+	var $ = function (s) { return document.querySelector(s); };
+	var body = $('#body');
+
+	function toast(msg, isErr) {
+		var t = $('#toast');
+		t.textContent = msg;
+		t.className = isErr ? 'show err' : 'show';
+		clearTimeout(toast._t);
+		toast._t = setTimeout(function () { t.className = ''; }, 2400);
+	}
+
+	function esc(s) {
+		return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+			return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+		});
+	}
+
+	function api(path, opts) {
+		opts = opts || {};
+		opts.headers = Object.assign({ 'Authorization': 'Bearer ' + TOKEN }, opts.headers || {});
+		return fetch(path, opts).then(function (r) {
+			return r.json().then(function (d) {
+				if (!r.ok || d.ok === false) throw new Error(d.error || ('HTTP ' + r.status));
+				return d;
+			});
+		});
+	}
+
+	/* ── 登录 ── */
+	function showLogin() {
+		$('#loginView').style.display = 'grid';
+		$('#appView').style.display = 'none';
+		$('#pw').focus();
+	}
+
+	function boot() {
+		if (!TOKEN) { showLogin(); return; }
+		api('/api/auth').then(function (d) {
+			if (d.ok) enter();
+			else showLogin();
+		}).catch(showLogin);
+	}
+
+	function enter() {
+		$('#loginView').style.display = 'none';
+		$('#appView').style.display = 'flex';
+		load();
+	}
+
+	$('#loginForm').addEventListener('submit', function (e) {
+		e.preventDefault();
+		var pw = $('#pw').value;
+		fetch('/api/login', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ password: pw })
+		}).then(function (r) { return r.json(); }).then(function (d) {
+			if (!d.ok) { toast(d.error || '密码不正确', true); return; }
+			TOKEN = d.token;
+			sessionStorage.setItem('ak-nav-token', TOKEN);
+			enter();
+		}).catch(function () { toast('登录失败', true); });
+	});
+
+	$('#logoutBtn').addEventListener('click', function () {
+		TOKEN = '';
+		sessionStorage.removeItem('ak-nav-token');
+		showLogin();
+	});
+
+	/* ── 载入 ── */
+	function load() {
+		fetch('/api/config', { cache: 'no-store' })
+			.then(function (r) { return r.json(); })
+			.then(function (d) {
+				CFG = d.config;
+				if (!CFG.groups) CFG.groups = [];
+				render();
+			})
+			.catch(function () { toast('载入失败', true); });
+	}
+
+	$('#reloadBtn').addEventListener('click', function () {
+		if (confirm('放弃未保存的修改并重新载入？')) load();
+	});
+
+	$('#saveBtn').addEventListener('click', function () {
+		save();
+	});
+
+	function save() {
+		var payload = {
+			title: CFG.title,
+			subtitle: CFG.subtitle,
+			footer: CFG.footer,
+			footerUrl: CFG.footerUrl,
+			searchEngine: (CFG.engines && CFG.engines[0] ? CFG.engines[0].url : CFG.searchEngine),
+			engine: CFG.engine,
+			engines: CFG.engines,
+			theme: CFG.theme,
+			sync: CFG.sync || {},
+			groups: CFG.groups
+		};
+		if (CFG._newPassword) payload.newPassword = CFG._newPassword;
+
+		api('/api/config', {
+			method: 'PUT',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(payload)
+		}).then(function (d) {
+			CFG = d.config;
+			if (CFG._newPassword) delete CFG._newPassword;
+			toast('已保存');
+			render();
+		}).catch(function (e) { toast(e.message || '保存失败', true); });
+	}
+
+	/* ── Tab ── */
+	[].forEach.call(document.querySelectorAll('.tab'), function (b) {
+		b.addEventListener('click', function () {
+			tab = b.dataset.tab;
+			[].forEach.call(document.querySelectorAll('.tab'), function (x) { x.classList.remove('is-on'); });
+			b.classList.add('is-on');
+			$('#tabTitle').textContent = b.textContent.replace(/^\S+\s*/, '');
+			render();
+		});
+	});
+
+	/* ── 渲染 ── */
+	function render() {
+		if (!CFG) return;
+		if (tab === 'settings') renderSettings();
+		if (tab === 'groups') renderGroups();
+		if (tab === 'sites') renderSites();
+		if (tab === 'import') renderImport();
+		if (tab === 'sync') renderSync();
+	}
+
+	function renderSettings() {
+		body.innerHTML =
+			'<div class="card"><h3>站点信息</h3>'
+			+ row('标题', '<input class="field" id="f-title" value="' + esc(CFG.title || '') + '">')
+			+ row('副标题', '<input class="field" id="f-subtitle" value="' + esc(CFG.subtitle || '') + '">')
+			+ '</div>'
+			+ '<div class="card"><h3>页脚</h3>'
+			+ row('显示文字', '<input class="field" id="f-footer" value="' + esc(CFG.footer || '') + '">')
+			+ row('链接地址', '<input class="field" id="f-footerUrl" value="' + esc(CFG.footerUrl || '') + '">')
+			+ '</div>'
+			+ '<div class="card"><h3>搜索</h3>'
+			+ '<div id="engList"></div>'
+			+ '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">'
+			+ '<button class="btn btn-sm btn-primary" id="engAdd">+ 新增搜索引擎</button>'
+			+ '</div>'
+			+ '<div class="hint" style="margin-top:10px">用 <code>%s</code> 代表关键词，例如 '
+			+ '<code>https://www.bing.com/search?q=%s</code>。左边圆圈选中的就是默认引擎，'
+			+ '前台搜索框右侧可以随时切换，切换结果只存在访客自己浏览器里。</div>'
+			+ '</div>'
+			+ '<div class="card"><h3>外观</h3>'
+			+ row('默认主题', '<select class="field" id="f-theme">'
+				+ '<option value="dark"' + (CFG.theme !== 'light' ? ' selected' : '') + '>深色</option>'
+				+ '<option value="light"' + (CFG.theme === 'light' ? ' selected' : '') + '>浅色</option></select>')
+			+ '</div>'
+			+ '<div class="card"><h3>安全</h3>'
+			+ row('新密码', '<input class="field" id="f-newpw" type="password" placeholder="留空表示不修改（至少 4 位）">')
+			+ '</div>';
+
+		bind('f-title', 'title');
+		bind('f-subtitle', 'subtitle');
+		bind('f-footer', 'footer');
+		bind('f-footerUrl', 'footerUrl');
+		bind('f-theme', 'theme');
+
+		renderEngines();
+
+		$('#f-newpw').addEventListener('input', function () {
+			CFG._newPassword = this.value.trim() || null;
+		});
+	}
+
+	function renderEngines() {
+		if (!CFG.engines || !CFG.engines.length) {
+			CFG.engines = [{ id: 'bing', name: 'Bing', url: CFG.searchEngine || 'https://www.bing.com/search?q=%s' }];
+		}
+		if (!CFG.engine || !CFG.engines.some(function (e) { return e.id === CFG.engine; })) {
+			CFG.engine = CFG.engines[0].id;
+		}
+
+		var box = $('#engList');
+		box.innerHTML = CFG.engines.map(function (e, i) {
+			return '<div class="g-row">'
+				+ '<label style="cursor:pointer;display:grid;place-items:center;width:24px" title="设为默认">'
+				+ '<input type="radio" name="engdef" data-engdef="' + i + '"' + (e.id === CFG.engine ? ' checked' : '') + '>'
+				+ '</label>'
+				+ '<input class="field" style="width:110px;height:34px" data-ei="' + i + '" data-ek="name"'
+				+ ' value="' + esc(e.name || '') + '" placeholder="名称">'
+				+ '<input class="field" style="flex:1;height:34px" data-ei="' + i + '" data-ek="url"'
+				+ ' value="' + esc(e.url || '') + '" placeholder="https://www.bing.com/search?q=%s">'
+				+ '<button class="btn btn-sm btn-danger" data-edel="' + i + '">删</button>'
+				+ '</div>';
+		}).join('');
+
+		[].forEach.call(box.querySelectorAll('[data-ei]'), function (el) {
+			el.addEventListener('input', function () {
+				CFG.engines[+el.dataset.ei][el.dataset.ek] = el.value;
+			});
+		});
+		[].forEach.call(box.querySelectorAll('[data-engdef]'), function (r) {
+			r.addEventListener('change', function () { CFG.engine = CFG.engines[+r.dataset.engdef].id; });
+		});
+		[].forEach.call(box.querySelectorAll('[data-edel]'), function (b) {
+			b.addEventListener('click', function () {
+				if (CFG.engines.length <= 1) return toast('至少留一个搜索引擎', true);
+				CFG.engines.splice(+b.dataset.edel, 1);
+				renderEngines();
+			});
+		});
+
+		$('#engAdd').addEventListener('click', function () {
+			CFG.engines.push({
+				id: 'e' + Math.random().toString(16).slice(2, 8),
+				name: '新引擎',
+				url: 'https://www.google.com/search?q=%s'
+			});
+			renderEngines();
+		});
+	}
+
+	function row(label, inner) {
+		return '<div class="row"><label>' + label + '</label><div>' + inner + '</div></div>';
+	}
+
+	function bind(id, key) {
+		var el = $('#' + id);
+		if (!el) return;
+		el.addEventListener('input', function () { CFG[key] = this.value; });
+		el.addEventListener('change', function () { CFG[key] = this.value; });
+	}
+
+	function renderGroups() {
+		var hiddenN = CFG.groups.filter(function (g) { return g.hidden; }).length;
+		var html = '<div class="tip">用 <b>↑ ↓</b> 调顺序，<b>图标</b>填一个 emoji。<b>点眼睛</b>可以让这个分类在前台不显示（设置里仍然保留，随时恢复）。'
+			+ (hiddenN ? ' 当前已隐藏 <b>' + hiddenN + '</b> 个分类。' : '') + '</div>';
+		html += '<div class="card"><h3>分组列表 <span class="hint">共 ' + CFG.groups.length + ' 个'
+			+ (hiddenN ? '，隐藏 ' + hiddenN + ' 个' : '') + '</span></h3>';
+
+		CFG.groups.forEach(function (g, i) {
+			html += '<div class="g-row' + (g.hidden ? ' is-hidden' : '') + '">'
+				+ '<span class="mini">' + (i + 1) + '</span>'
+				+ '<input class="field ico-in" data-gi="' + i + '" data-k="icon" value="' + esc(g.icon || '') + '" placeholder="🙂">'
+				+ '<input class="field name-in" data-gi="' + i + '" data-k="name" value="' + esc(g.name || '') + '" placeholder="分组名">'
+				+ (g.source === 'sync' ? '<span class="badge-sync">同步</span>' : '')
+				+ '<span class="chip">' + (g.sites || []).length + ' 站</span>'
+				+ '<div class="move-btns">'
+				+ '<button data-up="' + i + '">▲</button><button data-down="' + i + '">▼</button>'
+				+ '</div>'
+				+ '<button class="eye' + (g.hidden ? ' is-off' : '') + '" data-eye="' + i + '"'
+				+ ' title="' + (g.hidden ? '前台隐藏中，点击恢复显示' : '在前台隐藏这个分类') + '">'
+				+ (g.hidden ? '🙈' : '👁') + '</button>'
+				+ '<button class="btn btn-sm btn-danger" data-del-g="' + i + '">删</button>'
+				+ '</div>';
+		});
+
+		html += '<div style="margin-top:12px"><button class="btn btn-sm btn-primary" id="addGroup">+ 新增分组</button></div></div>';
+		body.innerHTML = html;
+
+		bindGroupFields();
+	}
+
+	function bindGroupFields() {
+		[].forEach.call(body.querySelectorAll('[data-gi]'), function (el) {
+			el.addEventListener('input', function () {
+				CFG.groups[+el.dataset.gi][el.dataset.k] = el.value;
+			});
+		});
+		[].forEach.call(body.querySelectorAll('[data-eye]'), function (b) {
+			b.addEventListener('click', function () {
+				var i = +b.dataset.eye;
+				CFG.groups[i].hidden = !CFG.groups[i].hidden;
+				toast(CFG.groups[i].hidden ? '「' + CFG.groups[i].name + '」已隐藏，记得保存' : '「' + CFG.groups[i].name + '」已恢复显示');
+				renderGroups();
+			});
+		});
+		[].forEach.call(body.querySelectorAll('[data-del-g]'), function (b) {
+			b.addEventListener('click', function () {
+				var i = +b.dataset.delG;
+				if (!confirm('删除分组「' + CFG.groups[i].name + '」以及其中的 ' + (CFG.groups[i].sites || []).length + ' 个站点？')) return;
+				CFG.groups.splice(i, 1);
+				renderGroups();
+			});
+		});
+		[].forEach.call(body.querySelectorAll('[data-up]'), function (b) {
+			b.addEventListener('click', function () {
+				var i = +b.dataset.up;
+				if (i === 0) return;
+				var t = CFG.groups[i - 1]; CFG.groups[i - 1] = CFG.groups[i]; CFG.groups[i] = t;
+				renderGroups();
+			});
+		});
+		[].forEach.call(body.querySelectorAll('[data-down]'), function (b) {
+			b.addEventListener('click', function () {
+				var i = +b.dataset.down;
+				if (i >= CFG.groups.length - 1) return;
+				var t = CFG.groups[i + 1]; CFG.groups[i + 1] = CFG.groups[i]; CFG.groups[i] = t;
+				renderGroups();
+			});
+		});
+		var ag = $('#addGroup');
+		if (ag) ag.addEventListener('click', function () {
+			CFG.groups.push({ id: 'g' + Math.random().toString(16).slice(2, 10), name: '新分组', icon: '📁', sites: [] });
+			renderGroups();
+		});
+	}
+
+	function renderSites() {
+		if (!CFG.groups.length) {
+			body.innerHTML = '<div class="empty"><strong>还没有分组</strong>先去「分组」建一个</div>';
+			return;
+		}
+
+		var html = '<div class="tip">直接在表格里改，改完点右上角 <b>保存</b>。<b>图标</b>留空会自动抓取网站 favicon。</div>';
+
+		CFG.groups.forEach(function (g, gi) {
+			html += '<div class="card"><h3>' + (g.icon || '📁') + ' ' + esc(g.name)
+				+ ' <span class="hint">' + (g.sites || []).length + ' 个站点</span></h3>';
+
+			(g.sites || []).forEach(function (s, si) {
+				html += '<div class="s-row">'
+					+ '<span class="mini">' + (si + 1) + '</span>'
+					+ '<input class="field" data-si="' + gi + ',' + si + '" data-k="title" value="' + esc(s.title || '') + '" placeholder="名称">'
+					+ '<input class="field" data-si="' + gi + ',' + si + '" data-k="url" value="' + esc(s.url || '') + '" placeholder="https://...">'
+					+ '<input class="field" data-si="' + gi + ',' + si + '" data-k="desc" value="' + esc(s.desc || '') + '" placeholder="备注">'
+					+ '<button class="btn btn-sm btn-danger" data-del-s="' + gi + ',' + si + '">删</button>'
+					+ '</div>';
+			});
+
+			html += '<div style="margin-top:10px"><button class="btn btn-sm" data-add-s="' + gi + '">+ 添加站点</button></div></div>';
+		});
+
+		body.innerHTML = html;
+
+		[].forEach.call(body.querySelectorAll('[data-si]'), function (el) {
+			el.addEventListener('input', function () {
+				var p = el.dataset.si.split(',');
+				CFG.groups[+p[0]].sites[+p[1]][el.dataset.k] = el.value;
+			});
+		});
+		[].forEach.call(body.querySelectorAll('[data-del-s]'), function (b) {
+			b.addEventListener('click', function () {
+				var p = b.dataset.delS.split(',');
+				CFG.groups[+p[0]].sites.splice(+p[1], 1);
+				renderSites();
+			});
+		});
+		[].forEach.call(body.querySelectorAll('[data-add-s]'), function (b) {
+			b.addEventListener('click', function () {
+				var gi = +b.dataset.addS;
+				if (!CFG.groups[gi].sites) CFG.groups[gi].sites = [];
+				CFG.groups[gi].sites.push({ id: 's' + Math.random().toString(16).slice(2, 10), title: '', url: '', desc: '', icon: '' });
+				renderSites();
+			});
+		});
+	}
+
+	function renderImport() {
+		html();
+		function html() {
+			body.innerHTML =
+				'<div class="tip">'
+				+ '<b>Chrome / Edge：</b>书签管理器（Ctrl+Shift+O）→ 右上角 ⋮ → 导出书签 → 得到一个 .html 文件。<br>'
+				+ '也可以直接选浏览器 profile 里的 <code>Bookmarks</code> 文件（JSON，无扩展名），同样能解析。<br>'
+				+ '<b>想要全自动同步？</b>去「🔁 自动同步」页填一次路径就行，之后收藏夹一变这里跟着变。<br>'
+				+ '<b>注意：</b>导入只是替换/追加到「未保存的配置」，确认无误后一定要点右上角 <b>保存</b>。'
+				+ '</div>'
+				+ '<div class="card"><h3>选择书签文件</h3>'
+				+ '<div class="drop" id="drop">'
+				+ '<strong>点这里选择书签文件</strong>'
+				+ 'bookmarks.html 或 Chrome 的 Bookmarks（JSON）都行，也可以直接拖进来'
+				+ '</div>'
+				+ '<input type="file" id="file" accept=".html,.htm,.json,text/html,application/json" style="display:none">'
+				+ '<div class="import-preview" id="pv"></div>'
+				+ '</div>';
+			bindImport();
+		}
+	}
+
+	function bindImport() {
+		var drop = $('#drop');
+		var file = $('#file');
+
+		drop.addEventListener('click', function () { file.click(); });
+		drop.addEventListener('dragover', function (e) { e.preventDefault(); drop.classList.add('hot'); });
+		drop.addEventListener('dragleave', function () { drop.classList.remove('hot'); });
+		drop.addEventListener('drop', function (e) {
+			e.preventDefault();
+			drop.classList.remove('hot');
+			if (e.dataTransfer.files.length) upload(e.dataTransfer.files[0]);
+		});
+		file.addEventListener('change', function () {
+			if (file.files.length) upload(file.files[0]);
+		});
+	}
+
+	function renderSync() {
+		CFG.sync = CFG.sync || { enabled: false, path: '', interval: 300, mode: 'merge' };
+
+		body.innerHTML =
+			'<div class="tip">'
+			+ '<b>怎么和 Google 书签同步：</b>Chrome 登录 Google 账号后的书签，最终都会写到本机这个文件里——'
+			+ '<code>…\\User Data\\Default\\Bookmarks</code>（一个 JSON）。Google 同步只是改这个文件。<br>'
+			+ '所以只要让导航站盯着这个文件，它一变就自动重新导入，效果就等于"和收藏夹同步"，不用任何 Google 授权。'
+			+ '</div>'
+
+			+ '<div class="card"><h3>同步开关</h3>'
+			+ row('自动同步', '<label class="switch"><input type="checkbox" id="s-enabled"'
+				+ (CFG.sync.enabled ? ' checked' : '') + '><i></i>'
+				+ '<span class="hint">关闭后只保留手动「立即同步」</span></label>')
+			+ row('书签文件', '<input class="field" id="s-path" value="' + esc(CFG.sync.path || '') + '"'
+				+ ' placeholder="留空 = 自动找本机 Chrome / Edge 的 Bookmarks">')
+			+ '<div class="hint" style="margin-left:130px;margin-top:-4px">'
+			+ 'Windows 例：<code>C:\\Users\\YOU\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Bookmarks</code><br>'
+			+ 'macOS 例：<code>~/Library/Application Support/Google/Chrome/Default/Bookmarks</code>'
+			+ '</div>'
+			+ row('检查间隔', '<select class="field" id="s-interval">'
+				+ [30, 60, 300, 900, 1800, 3600, 21600].map(function (v) {
+					var lbl = v < 60 ? (v + ' 秒') : (v < 3600 ? (v / 60) + ' 分钟' : (v / 3600) + ' 小时');
+					return '<option value="' + v + '"' + ((+CFG.sync.interval || 300) === v ? ' selected' : '') + '>'
+						+ lbl + '</option>';
+				}).join('') + '</select>')
+			+ row('导入方式', '<select class="field" id="s-mode">'
+				+ '<option value="merge"' + (CFG.sync.mode !== 'replace' ? ' selected' : '') + '>并入（保留我手动加的分组）</option>'
+				+ '<option value="replace"' + (CFG.sync.mode === 'replace' ? ' selected' : '') + '>整体替换（只留书签里的）</option>'
+				+ '</select>')
+			+ '<div class="hint" style="margin-left:130px;margin-top:-4px">'
+			+ '同名分组会保留你的图标、排序和<span style="color:var(--brand-hi)">隐藏状态</span>，不会被同步覆盖。</div>'
+			+ '</div>'
+
+			+ '<div class="card"><h3>立即操作</h3>'
+			+ '<div style="display:flex;gap:8px;flex-wrap:wrap">'
+			+ '<button class="btn" id="s-test">检测文件</button>'
+			+ '<button class="btn btn-primary" id="s-run">立即同步</button>'
+			+ '</div>'
+			+ '<div id="s-out" class="hint" style="margin-top:12px"></div>'
+			+ '</div>'
+
+			+ '<div class="card"><h3>当前状态</h3><table class="kv" id="s-state">'
+			+ '<tr><td>实际路径</td><td><code>—</code></td></tr>'
+			+ '</table></div>';
+
+		var pathEl = $('#s-path');
+		if (pathEl) pathEl.addEventListener('input', function () { CFG.sync.path = this.value; });
+
+		$('#s-enabled').addEventListener('change', function () { CFG.sync.enabled = this.checked; });
+		$('#s-interval').addEventListener('change', function () { CFG.sync.interval = +this.value; });
+		$('#s-mode').addEventListener('change', function () { CFG.sync.mode = this.value; });
+
+		$('#s-test').addEventListener('click', function () {
+			out('正在检测…');
+			api('/api/sync/test', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ path: CFG.sync.path || '' })
+			}).then(function (d) {
+				if (!d.ok) return out('<span style="color:#FF8A8A">' + esc(d.error) + '</span>');
+				out('✅ 找到文件：<code>' + esc(d.resolvedPath) + '</code><br>解析到 <b>' + d.groupsCount
+					+ '</b> 个分组 / <b>' + d.sitesCount + '</b> 个站点<br>'
+					+ d.names.slice(0, 12).map(function (n) { return '📁 ' + esc(n); }).join('　'));
+			}).catch(function (e) { out('<span style="color:#FF8A8A">' + esc(e.message) + '</span>'); });
+		});
+
+		$('#s-run').addEventListener('click', function () {
+			out('正在同步…');
+			api('/api/sync', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					path: CFG.sync.path || '',
+					enabled: CFG.sync.enabled,
+					interval: CFG.sync.interval,
+					mode: CFG.sync.mode
+				})
+			}).then(function (d) {
+				if (!d.ok) return out('<span style="color:#FF8A8A">' + esc(d.error) + '</span>');
+				if (d.config) CFG = d.config;
+				out('✅ 同步完成：现在共 <b>' + d.groupsCount + '</b> 个分组 / <b>' + d.sitesCount + '</b> 个站点'
+					+ (d.skipped ? '（文件没变化，跳过）' : ''));
+				toast('同步完成');
+				renderSync();
+			}).catch(function (e) { out('<span style="color:#FF8A8A">' + esc(e.message) + '</span>'); });
+		});
+
+		function out(h) { var el = $('#s-out'); if (el) el.innerHTML = h; }
+
+		// 拉取真实状态
+		fetch('/api/sync', { cache: 'no-store' })
+			.then(function (r) { return r.json(); })
+			.then(function (d) {
+				if (!d.ok) return;
+				var s = d.sync;
+				var st = $('#s-state');
+				if (!st) return;
+				var rows = [
+					['实际路径', '<code>' + esc(s.resolvedPath || '(未找到)') + '</code>'],
+					['文件存在', s.exists ? '✅ 是' : '❌ 否'],
+					['文件更新时间', s.mtime ? new Date(s.mtime * 1000).toLocaleString() : '—'],
+					['上次同步', s.lastSync ? new Date(s.lastSync * 1000).toLocaleString() : '从未'],
+					['上次结果', esc(s.lastResult || '—')]
+				];
+				if (s.candidates && s.candidates.length) {
+					rows.push(['候选路径', s.candidates.map(function (c) {
+						return '<code style="font-size:11px">' + esc(c) + '</code>';
+					}).join('<br>')]);
+				}
+				st.innerHTML = rows.map(function (r) {
+					return '<tr><td>' + r[0] + '</td><td>' + r[1] + '</td></tr>';
+				}).join('');
+			}).catch(function () {});
+	}
+
+	function upload(f) {
+		var drop = $('#drop');
+		drop.querySelector('strong').textContent = '正在解析 ' + f.name + ' …';
+
+		f.arrayBuffer().then(function (buf) {
+			return api('/api/import', {
+				method: 'POST',
+				headers: { 'Content-Type': 'text/html; charset=utf-8' },
+				body: buf
+			});
+		}).then(function (d) {
+			importPreview = d.groups;
+			drop.querySelector('strong').textContent = '点这里选择 bookmarks.html';
+			renderPreview(d);
+		}).catch(function (e) {
+			drop.querySelector('strong').textContent = '点这里选择 bookmarks.html';
+			toast(e.message || '解析失败', true);
+		});
+	}
+
+	function renderPreview(d) {
+		var pv = $('#pv');
+		var html = '<div class="card" style="border-color:rgba(91,108,255,.35)">'
+			+ '<h3>解析结果 <span class="hint">' + d.groupsCount + ' 个分组 · ' + d.sitesCount + ' 个站点</span></h3>';
+
+		d.groups.slice(0, 30).forEach(function (g) {
+			html += '<div class="pv-group"><div class="pv-head"><span>📁 ' + esc(g.name) + '</span>'
+				+ '<span class="hint">' + g.sites.length + '</span></div><div class="pv-list">';
+			g.sites.slice(0, 12).forEach(function (s) {
+				html += '<span title="' + esc(s.url) + '">' + esc(s.title) + '</span>';
+			});
+			if (g.sites.length > 12) html += '<span>…还有 ' + (g.sites.length - 12) + ' 个</span>';
+			html += '</div></div>';
+		});
+
+		if (d.groups.length > 30) {
+			html += '<div class="hint">…还有 ' + (d.groups.length - 30) + ' 个分组未显示（导入时会全部导入）</div>';
+		}
+
+		html += '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">'
+			+ '<button class="btn btn-primary" id="doAppend">追加到现有配置</button>'
+			+ '<button class="btn" id="doReplace">替换全部</button>'
+			+ '<button class="btn btn-ghost" id="doCancel">取消</button>'
+			+ '</div></div>';
+
+		pv.innerHTML = html;
+
+		$('#doAppend').addEventListener('click', function () {
+			CFG.groups = CFG.groups.concat(importPreview);
+			importPreview = null;
+			toast('已追加，记得点保存');
+			tab = 'sites';
+			$('#tabTitle').textContent = '站点';
+			[].forEach.call(document.querySelectorAll('.tab'), function (x) {
+				x.classList.toggle('is-on', x.dataset.tab === 'sites');
+			});
+			renderSites();
+		});
+
+		$('#doReplace').addEventListener('click', function () {
+			if (!confirm('这会清空现有 ' + CFG.groups.length + ' 个分组，只保留导入的内容。继续？')) return;
+			CFG.groups = importPreview;
+			importPreview = null;
+			toast('已替换，记得点保存');
+			tab = 'sites';
+			$('#tabTitle').textContent = '站点';
+			[].forEach.call(document.querySelectorAll('.tab'), function (x) {
+				x.classList.toggle('is-on', x.dataset.tab === 'sites');
+			});
+			renderSites();
+		});
+
+		$('#doCancel').addEventListener('click', function () {
+			importPreview = null;
+			pv.innerHTML = '';
+		});
+	}
+
+	boot();
+})();
+</script>
+</body>
+</html>

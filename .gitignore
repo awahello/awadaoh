@@ -79,3 +79,8 @@ service/uploads
 service/plugins
 # PRO 物料（二进制 + 官方前端包，不进仓库）
 pro/
+
+# 极简导航站（nav/）运行数据与本地测试书签
+nav/data/
+nav/**/__pycache__/
+*.pyc
