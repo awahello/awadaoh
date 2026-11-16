@@ -47,7 +47,11 @@ cd awadaoh
 <table>
 <tr>
 <td><img src="./nav/doc/admin-groups.png" alt="分组管理" /></td>
+<td><img src="./nav/doc/admin-sites.png" alt="站点编辑" /></td>
+</tr>
+<tr>
 <td><img src="./nav/doc/admin-sync.png" alt="自动同步" /></td>
+<td><img src="./nav/doc/admin-private.png" alt="内网地址保护" /></td>
 </tr>
 </table>
 

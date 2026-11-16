@@ -85,3 +85,4 @@ nav/data/
 nav/**/__pycache__/
 *.pyc
 .devtmp/
+.shots/
