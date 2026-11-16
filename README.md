@@ -218,6 +218,10 @@ docker buildx build --platform linux/amd64,linux/arm64 \
 # => https://github.com/awahello/awadaoh/releases/download/v2.0.2-beta261110/awadaoh-pro_v2.0.2-beta261110_linux_arm64.tar.gz
 ```
 
+没有 `gh` 也能上传：仓库 → Releases → Draft a new release，Tag 填同一个 `$TAG`，
+把包改名成 `awadaoh-pro_<TAG>_linux_<ARCH>.tar.gz` 拖进去发布即可，
+`fetch-pro.sh` 和 CI 都会直接命中。
+
 推送 tag 到仓库后，`.github/workflows/docker-pro.yml` 会自动完成上面全部步骤，
 把 `ghcr.io/awahello/awadaoh:latest` 推成 amd64 + arm64 双架构。
 
