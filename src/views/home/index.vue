@@ -970,6 +970,13 @@ html {
   opacity: 1;
 }
 
+/* 触屏没有 hover：编辑按钮常显，否则手机上根本改不了分组 */
+@media (hover: none) {
+  .group-tools {
+    opacity: 1;
+  }
+}
+
 .group-tools button {
   width: 24px;
   height: 24px;
@@ -1038,7 +1045,8 @@ html {
   display: grid;
   place-items: center;
   overflow: hidden;
-  background: transparent;
+  /* 和 nav 一样：图标块自带一层浅色底，favicon 是透明 PNG 也不会糊在卡片上 */
+  background: var(--panel-3);
   flex-shrink: 0;
   color: var(--text-3);
   font-size: 20px;
