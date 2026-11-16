@@ -991,6 +991,10 @@
 	loadConfig()
 		.then(function (cfg) {
 			CFG = cfg;
+			// 带了 token 但还在打码 → token 已失效（服务重启/过期），清掉免得后台一直转登录页
+			if (authHeaders().Authorization && (CFG.privateMasked || 0) > 0) {
+				try { localStorage.removeItem('ak-nav-token'); } catch (e) {}
+			}
 			if (CFG.theme && !localStorage.getItem('ak-nav-theme')) applyTheme(CFG.theme);
 			loadEngines();
 			renderAll();
