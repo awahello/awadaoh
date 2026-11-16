@@ -32,6 +32,13 @@ func InitSyncRouter(router *gin.RouterGroup) {
 		rAdmin.POST("/panel/sync/run", api.Run)
 		rAdmin.POST("/panel/sync/test", api.Test)
 	}
+
+	// Chrome 扩展推书签。只要登录态就够（写到当前用户名下），不要求管理员 ——
+	// 这样普通用户也能给自己同步，不用共享管理员密码。
+	rLogin := router.Group("", middleware.LoginInterceptor)
+	{
+		rLogin.POST("/panel/sync/push", api.Push)
+	}
 }
 
 func InitExportRouter(router *gin.RouterGroup) {

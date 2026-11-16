@@ -1,9 +1,11 @@
 package panel
 
 import (
+	"io"
 	"os"
 
 	"awadaoh/api/api_v1/common/apiReturn"
+	"awadaoh/api/api_v1/common/base"
 	"awadaoh/global"
 	"awadaoh/lib/cmn/systemSetting"
 	"awadaoh/lib/panelSync"
@@ -147,5 +149,53 @@ func (a SyncApi) Test(c *gin.Context) {
 		"names":       names,
 		"mtime":       fi.ModTime().Unix(),
 		"size":        fi.Size(),
+	})
+}
+
+// Push 给 Chrome 扩展用。
+//
+// 为什么需要它：Google 没有公开的「Chrome 书签」API，Chrome 的同步走的是
+// 私有 protobuf 协议，第三方拿不到。但 Chrome 已经把书签同步到每台登录了
+// 同一账号的机器上 —— 所以让扩展读本地那份（chrome.bookmarks.getTree()），
+// 一变就推到面板，效果就等于「登录谷歌就同步」。
+//
+// 请求体就是扩展拼的 {"roots": {"bookmark_bar": {...}, "other": {...}, "synced": {...}}}，
+// 和 Chrome profile 里的 Bookmarks 文件同构，所以直接复用 ParseChromeBookmarks。
+func (a SyncApi) Push(c *gin.Context) {
+	body, err := io.ReadAll(io.LimitReader(c.Request.Body, 32<<20))
+	if err != nil || len(body) == 0 {
+		apiReturn.ErrorParamFomat(c, "没有收到书签数据")
+		return
+	}
+
+	groups, err := panelSync.ParseChromeBookmarks(body)
+	if err != nil {
+		apiReturn.Error(c, "解析失败："+err.Error())
+		return
+	}
+	if len(groups) == 0 {
+		apiReturn.Error(c, "解析结果为空，检查扩展是否读到了书签")
+		return
+	}
+
+	u, ok := base.GetCurrentUserInfo(c)
+	if !ok {
+		apiReturn.ErrorNoAccess(c)
+		return
+	}
+
+	mode := panelSync.GetSetting().Mode
+	nGroup, nSite, err := panelSync.ApplyGroups(u.ID, groups, mode)
+	if err != nil {
+		apiReturn.ErrorDatabase(c, err.Error())
+		return
+	}
+
+	panelSync.MarkPushed(len(groups), nSite)
+	apiReturn.SuccessData(c, gin.H{
+		"groups":    len(groups),
+		"sites":     nSite,
+		"newGroups": nGroup,
+		"mode":      mode,
 	})
 }

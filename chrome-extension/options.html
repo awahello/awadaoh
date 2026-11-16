@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Awadaoh 书签同步 · 设置</title>
+<style>
+  :root {
+    --bg: #090D16; --panel: #121927; --panel-2: #182033;
+    --line: rgba(255,255,255,.075); --line-2: rgba(255,255,255,.14);
+    --text: #E9EDF7; --text-2: #99A3BE; --text-3: #65708D;
+    --brand: #5B6CFF; --brand-hi: #7C8AFF; --ok: #34D399; --bad: #F87171;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 36px 20px 60px; min-height: 100vh;
+    background:
+      radial-gradient(900px 520px at 8% -12%, rgba(91,108,255,.30), transparent 62%),
+      radial-gradient(760px 480px at 102% 108%, rgba(34,211,197,.18), transparent 62%),
+      var(--bg);
+    color: var(--text);
+    font-family: "Inter", "PingFang SC", "Microsoft YaHei", -apple-system, sans-serif;
+    font-size: 14px; line-height: 1.6;
+  }
+  .wrap { max-width: 640px; margin: 0 auto; }
+  .head { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+  .mark {
+    width: 38px; height: 38px; border-radius: 12px;
+    background: linear-gradient(135deg, var(--brand), #22D3C5);
+    display: grid; place-items: center; font-weight: 800;
+    box-shadow: 0 8px 20px rgba(91,108,255,.4);
+  }
+  h1 { margin: 0; font-size: 18px; }
+  .sub { margin: 0 0 22px 50px; color: var(--text-3); font-size: 12.5px; }
+  .card {
+    border: 1px solid var(--line); border-radius: 13px;
+    background: var(--panel); padding: 18px; margin-bottom: 14px;
+  }
+  .card h2 { margin: 0 0 14px; font-size: 13px; color: var(--text-2); letter-spacing: .3px; text-transform: uppercase; }
+  .row { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 12px; }
+  .row > label { width: 92px; flex: 0 0 92px; padding-top: 9px; font-size: 12.5px; color: var(--text-2); }
+  .row > div { flex: 1; min-width: 0; }
+  input[type=text], input[type=password], input[type=number] {
+    width: 100%; height: 38px; padding: 0 12px;
+    border-radius: 9px; border: 1px solid var(--line-2);
+    background: var(--panel-2); color: var(--text); font-size: 13.5px;
+    font-family: inherit; outline: none;
+  }
+  input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(91,108,255,.18); }
+  button {
+    height: 36px; padding: 0 16px; border: 0; border-radius: 9px;
+    background: var(--brand); color: #fff; font-size: 13px; font-weight: 600;
+    font-family: inherit; cursor: pointer;
+  }
+  button:hover { background: var(--brand-hi); }
+  button.ghost { background: transparent; border: 1px solid var(--line-2); color: var(--text-2); }
+  button.ghost:hover { background: var(--panel-2); color: var(--text); }
+  button:disabled { opacity: .5; cursor: default; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+  .hint { font-size: 11.5px; color: var(--text-3); line-height: 1.7; margin-top: 8px; }
+  .state { font-size: 12.5px; }
+  .ok { color: var(--ok); }
+  .bad { color: var(--bad); }
+  code { font-family: Consolas, monospace; font-size: 11.5px; color: #22D3C5; }
+  .tip {
+    border: 1px solid var(--line); border-radius: 13px;
+    background: rgba(91,108,255,.08); padding: 12px 14px;
+    font-size: 12.5px; color: var(--text-2); margin-bottom: 14px; line-height: 1.75;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <div class="mark">A</div>
+    <h1>Awadaoh 书签同步</h1>
+  </div>
+  <p class="sub">Chrome 已经把书签同步到这台机器，这个扩展只负责把本地那份推给面板。</p>
+
+  <div class="tip">
+    <b>为什么不用登录谷歌：</b>Google 没有公开的 Chrome 书签 API，Chrome 同步走的是私有协议。
+    但只要你在这台 Chrome 上登录了谷歌账号，书签就已经在本地了 —— 扩展读本地、推给面板，
+    效果和「登录就同步」一样。
+  </div>
+
+  <div class="card">
+    <h2>① 面板地址</h2>
+    <div class="row">
+      <label>地址</label>
+      <div>
+        <input id="panelUrl" type="text" placeholder="https://nav.example.com">
+        <div class="hint">面板首页地址，不要带结尾斜杠。扩展会请求 <code>/api/v1/panel/sync/push</code>。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>② 登录面板（拿 token）</h2>
+    <div class="row">
+      <label>账号</label>
+      <div><input id="username" type="text" placeholder="admin" autocomplete="username"></div>
+    </div>
+    <div class="row">
+      <label>密码</label>
+      <div><input id="password" type="password" placeholder="面板登录密码" autocomplete="current-password"></div>
+    </div>
+    <div class="actions">
+      <button id="loginBtn">登录并保存 token</button>
+      <span id="loginState" class="state"></span>
+    </div>
+    <div class="hint">密码只用来换一次 token，不会存进扩展。token 存在扩展本地存储里，面板重启或 12 小时后需要重新登录。</div>
+  </div>
+
+  <div class="card">
+    <h2>③ 同步</h2>
+    <div class="row">
+      <label>自动推送</label>
+      <div>
+        <input id="autoPush" type="checkbox" checked style="width:auto;height:auto">
+        <span class="hint" style="margin-left:8px">书签一变就推（防抖 3 秒）</span>
+      </div>
+    </div>
+    <div class="row">
+      <label>兜底间隔</label>
+      <div>
+        <input id="intervalMin" type="number" min="1" max="720" value="30" style="max-width:120px">
+        <span class="hint" style="margin-left:8px">分钟，Chrome 同步是异步的，本地变了才知道</span>
+      </div>
+    </div>
+    <div class="actions">
+      <button id="pushBtn">立即同步</button>
+      <button id="saveBtn" class="ghost">保存设置</button>
+    </div>
+    <div class="hint" id="lastResult"></div>
+  </div>
+</div>
+<script src="options.js"></script>
+</body>
+</html>

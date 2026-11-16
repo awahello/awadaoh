@@ -2,6 +2,7 @@ package panelSync
 
 import (
 	"crypto/sha1"
+	"fmt"
 	"encoding/hex"
 	"encoding/json"
 	"net/url"
@@ -472,4 +473,17 @@ func StartWatcher(userId func() uint) {
 func SortedGroups(groups []models.ItemIconGroup) []models.ItemIconGroup {
 	sort.SliceStable(groups, func(i, j int) bool { return groups[i].Sort < groups[j].Sort })
 	return groups
+}
+
+// MarkPushed 记一次「扩展推过来」的结果，让后台「当前状态」里能看到，
+// 不用去翻日志确认扩展到底推没推。
+func MarkPushed(groups, sites int) {
+	s := GetSetting()
+	s.LastSync = time.Now().Unix()
+	s.LastResult = fmt.Sprintf("扩展推送：%d 个分组 / %d 个站点", groups, sites)
+	_ = SaveSetting(s)
+	setState(func(st *State) {
+		st.LastSync = s.LastSync
+		st.LastError = ""
+	})
 }

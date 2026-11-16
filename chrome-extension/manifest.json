@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "Awadaoh 书签同步",
+  "version": "1.0.0",
+  "description": "把 Chrome 书签推送到自托管的 Awadaoh 面板。Chrome 已经把书签同步到这台机器，这个扩展只负责把本地那份推给面板。",
+  "permissions": ["bookmarks", "storage", "alarms"],
+  "host_permissions": ["http://*/*", "https://*/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "action": {
+    "default_title": "Awadaoh 书签同步"
+  }
+}
