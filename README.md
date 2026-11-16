@@ -109,6 +109,10 @@ ADMIN_PASS='admin123' docker compose up -d
 
 ### 和 Google 书签自动同步是怎么做的
 
+> 面板（`service/` + `src/`）那边还有一条更省事的路：装 `chrome-extension/`，
+> 扩展读 Chrome 已同步到本机的书签，一变就推给面板，不用管文件路径和挂载。
+> 见 [chrome-extension/README.md](./chrome-extension/README.md)。
+
 Chrome 登录 Google 账号后的书签，最终都会落到本地这个文件：
 
 | 系统 | 路径 |
