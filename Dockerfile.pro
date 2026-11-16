@@ -32,6 +32,9 @@ COPY ./pro/${TARGETARCH}/awadaoh /app/awadaoh
 # 只靠 RUN ./awadaoh -config 生成会回到 3002，所以这里直接带一份 conf/conf.ini
 # （tools/build-pro.sh 会把它写进 pro/<arch>/conf/conf.ini）
 COPY ./pro/${TARGETARCH}/conf /app/conf
+# 入口脚本用它兜底：宿主机 ./conf 挂进来是空目录时，先把这份模板拷进去
+COPY ./service/assets/conf.example.ini /app/conf.example.ini
+COPY ./docker/pro-entrypoint.sh /app/docker-entrypoint.sh
 
 ENV TZ=Asia/Shanghai
 
@@ -57,8 +60,7 @@ RUN set -eu; \
       exit 1; \
     fi; \
     apk add --no-cache bash ca-certificates su-exec tzdata curl; \
-    chmod +x ./awadaoh; \
-    (./awadaoh -config || true); \
+    chmod +x ./awadaoh ./docker-entrypoint.sh; \
     ( [ -f /app/conf/conf.ini ] \
         && sed -i 's/^[[:space:]]*http_port.*/http_port=3055/' /app/conf/conf.ini \
         || printf '[base]\nhttp_port=3055\n' > /app/conf/conf.ini ); \
@@ -67,4 +69,5 @@ RUN set -eu; \
 HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
     CMD curl -fsS http://127.0.0.1:3055/ || exit 1
 
-CMD ["./awadaoh"]
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
+CMD []

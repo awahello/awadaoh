@@ -69,6 +69,17 @@ echo "==> 前端补丁: isPro -> !0（兜底，后端已返回 true 时无命中
 echo "==> 前端主题注入: 导航站视觉 + 自有 logo"
 "$PY" "$ROOT/tools/web-inject.py" "$OUT/web"
 
+# 品牌收尾。放在最后：主题注入写进去的 css/js 也一起过一遍，
+# 免得前面换完、后面又被注回 Sun-Panel。
+# 后端二进制只能做等长替换（Go 字符串长度烘在指令里），规则见 rebrand.py 头部注释。
+echo "==> 抹掉上游品牌: Sun-Panel -> Awadaoh"
+"$PY" "$ROOT/tools/rebrand.py" --bin "$OUT/awadaoh" --web "$OUT/web"
+
+# 上游 release 包里带了一堆 macOS 的 AppleDouble 垃圾（._*）和 .DS_Store，
+# 打进镜像纯属浪费层体积
+find "$OUT/web" -name "._*" -delete 2>/dev/null || true
+find "$OUT/web" -name ".DS_Store" -delete 2>/dev/null || true
+
 echo "==> 生成 conf/conf.ini（端口 3055）"
 mkdir -p "$OUT/conf"
 if [ -f "$ROOT/service/assets/conf.example.ini" ]; then
@@ -95,6 +106,7 @@ fi
 echo "==> 复核"
 "$PY" "$ROOT/tools/patch-pro.py" "$OUT/awadaoh" --check
 "$PY" "$ROOT/tools/web-inject.py" "$OUT/web" --check
+"$PY" "$ROOT/tools/rebrand.py" --bin "$OUT/awadaoh" --web "$OUT/web" --check
 # 打完补丁再核一次：补丁脚本若改错文件会当场炸掉
 "$PY" "$ROOT/tools/elfarch.py" "$OUT/awadaoh" ${EXPECT:+--expect "$EXPECT"}
 

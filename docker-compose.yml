@@ -11,4 +11,7 @@ services:
       - 3055:3055
     environment:
       - TZ=Asia/Shanghai
+      # 容器内监听端口。入口脚本每次启动都会把 conf/conf.ini 的 http_port 改成这个值，
+      # 所以宿主机 conf/ 里写的是 3002 也会被拉回来。要换端口改这里 + ports 两处。
+      - AWADAOH_HTTP_PORT=3055
     restart: unless-stopped

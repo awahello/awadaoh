@@ -128,3 +128,26 @@ jobs:
             docker rm "chk-${ARCH}" >/dev/null
             python3 tools/elfarch.py "/tmp/awadaoh-${ARCH}" --expect "$ARCH"
           done
+
+      - name: 校验品牌残留（镜像里不能再有 Sun-Panel）
+        run: |
+          set -euo pipefail
+          TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -1)
+          docker run --rm --platform linux/amd64 --entrypoint /bin/sh "$TAG" -c '
+            set -e
+            n=$(grep -rl "Sun-Panel" /app/web 2>/dev/null | wc -l)
+            echo "前端包残留 Sun-Panel 文件数: $n"
+            if [ "$n" != "0" ]; then
+              grep -rl "Sun-Panel" /app/web | head
+              exit 1
+            fi
+            echo "后端横幅:"
+            grep -a -o "Welcome to [A-Za-z ]*" /app/awadaoh | head -3
+            grep -a -o "[A-Za-z]* is started up" /app/awadaoh | head -3
+            echo "项目地址:"
+            grep -a -o "https://github.com/awahello/awadaoh" /app/awadaoh | head -3
+            if grep -a -q "github.com/hslr-s/sun-panel" /app/awadaoh; then
+              echo "!! 后端还带着上游项目地址"
+              exit 1
+            fi
+          '
