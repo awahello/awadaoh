@@ -124,7 +124,7 @@ def copy_assets(web_dir):
         log("覆盖 %s (%.1f KB)" % (name, os.path.getsize(dst) / 1024.0))
 
 
-def check(web_dir):
+def check(web_dir, need_catnav=True):
     idx = os.path.join(web_dir, "index.html")
     ok = True
 
@@ -134,11 +134,14 @@ def check(web_dir):
         log("[缺失] %s" % THEME_NAME)
         ok = False
 
-    if os.path.isfile(os.path.join(web_dir, CATNAV_REL)):
-        log("[OK] custom/index.js 分类导航已就位")
+    if need_catnav:
+        if os.path.isfile(os.path.join(web_dir, CATNAV_REL)):
+            log("[OK] custom/index.js 分类导航已就位")
+        else:
+            log("[缺失] custom/index.js")
+            ok = False
     else:
-        log("[缺失] custom/index.js")
-        ok = False
+        log("[跳过] 分类导航（前端是自己的 dist，左侧分类栏在源码里）")
 
     if os.path.isfile(idx):
         with open(idx, "r", encoding="utf-8", errors="ignore") as f:
@@ -171,6 +174,11 @@ def main():
     ap.add_argument("web_dir")
     ap.add_argument("--check", action="store_true")
     ap.add_argument("--revert", action="store_true")
+    ap.add_argument(
+        "--no-catnav",
+        action="store_true",
+        help="前端是自己的 dist 时用：左侧分类栏已经编在源码里，不要再往 /custom/index.js 塞 DOM 补丁",
+    )
     a = ap.parse_args()
 
     web = a.web_dir
@@ -178,19 +186,20 @@ def main():
         raise SystemExit("不是目录: %s" % web)
 
     if a.check:
-        sys.exit(0 if check(web) else 1)
+        sys.exit(0 if check(web, not a.no_catnav) else 1)
 
     if a.revert:
         revert(web)
         return
 
     copy_theme(web)
-    copy_catnav(web)
+    if not a.no_catnav:
+        copy_catnav(web)
     copy_assets(web)
     inject_html(web)
     print()
     print("注入完成。")
-    check(web)
+    check(web, not a.no_catnav)
 
 
 if __name__ == "__main__":

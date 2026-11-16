@@ -135,7 +135,8 @@ func NotFoundAndCreateUser(db *gorm.DB) error {
 		if err != gorm.ErrRecordNotFound {
 			return err
 		}
-		username := "admin@sun.cc"
+		// 默认管理员：用户名就是 admin，别再让人去猜 admin@sun.cc
+		username := "admin"
 		fUser.Mail = username
 		fUser.Username = username
 		fUser.Name = username

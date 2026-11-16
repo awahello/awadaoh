@@ -2,7 +2,7 @@ name: build-pro
 
 # 构建 PRO 全功能镜像：
 #   后端 = 上游 release 二进制 + ProIsExpired 恒 false 补丁
-#   前端 = 上游同版本 web 包 + isPro 解锁 + Awadaoh 导航站主题注入
+#   前端 = 我们自己 src/ 的编译产物（dist），上游包只提供 custom/ static/ 挂载点
 # 产出：ghcr.io/<owner>/awadaoh:latest（linux/amd64 + linux/arm64）
 
 on:
@@ -42,6 +42,19 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "上游版本: $TAG"
 
+      - name: 构建前端（我们自己的 src/，不是上游 web 包）
+        run: |
+          set -euo pipefail
+          node -v && npm -v
+          npm ci --no-audit --no-fund
+          npm run build
+          echo "--- dist 产物 ---"
+          ls -la dist | head
+          echo "--- index.html 引用 ---"
+          grep -o 'assets/index-[A-Za-z0-9_-]*\.\(js\|css\)' dist/index.html
+          echo "--- 标题 ---"
+          grep -o '<title>[^<]*</title>' dist/index.html
+
       - name: 取物料并解包（amd64 / arm64）
         run: |
           set -euo pipefail
@@ -61,6 +74,25 @@ jobs:
           echo "--- 产物 ---"
           ls -la pro/amd64 pro/arm64
           du -sh pro/web
+
+      - name: 前端自洽闸门（index.html 引用的 chunk 必须真的存在）
+        run: |
+          set -euo pipefail
+          refs=$(grep -o 'assets/index-[A-Za-z0-9_-]*\.\(js\|css\)' pro/web/index.html | sort -u || true)
+          echo "index.html 引用:"
+          echo "$refs"
+          if [ -z "$refs" ]; then
+            echo "::error::pro/web/index.html 里没有任何 assets 引用"
+            exit 1
+          fi
+          for r in $refs; do
+            if [ ! -f "pro/web/$r" ]; then
+              echo "::error::index.html 引用了不存在的文件: $r"
+              ls -la pro/web/assets | head -20
+              exit 1
+            fi
+          done
+          echo "OK：引用的 chunk 全部存在"
 
       - name: 架构闸门（两个架构的二进制不能是同一个文件）
         run: |
@@ -150,4 +182,14 @@ jobs:
               echo "!! 后端还带着上游项目地址"
               exit 1
             fi
+            echo "--- 首页自洽 ---"
+            grep -o "assets/index-[A-Za-z0-9_-]*\.\(js\|css\)" /app/web/index.html | sort -u > /tmp/refs
+            cat /tmp/refs
+            for r in $(cat /tmp/refs); do
+              if [ ! -f "/app/web/$r" ]; then
+                echo "!! index.html 引用了不存在的文件: $r"
+                exit 1
+              fi
+            done
+            echo "首页 chunk 自洽 OK"
           '

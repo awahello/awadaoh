@@ -165,9 +165,14 @@ function handWindowIframeIdLoad(payload: Event) {
 
 function getList() {
   // 获取组数据
-  getGroupList<Common.ListResponse<ItemGroup[]>>().then(({ code, data, msg }) => {
-    if (code === 0)
-      items.value = data.list
+  getGroupList<Common.ListResponse<ItemGroup[]>>().then(({ code, data }) => {
+    // 访客模式没配公开账号时后端返回 1001，data 是空的 —— 走空列表，别抛 TypeError
+    if (code !== 0 || !data || !data.list) {
+      items.value = []
+      filterItems.value = []
+      return
+    }
+    items.value = data.list
     for (let i = 0; i < data.list.length; i++) {
       const element = data.list[i]
       if (element.id)
@@ -175,6 +180,9 @@ function getList() {
     }
     filterItems.value = items.value
     // console.log(items)
+  }).catch(() => {
+    items.value = []
+    filterItems.value = []
   })
 }
 

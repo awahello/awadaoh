@@ -16,7 +16,9 @@ export interface AuthState {
 const defaultState: AuthState = {
   token: null,
   userInfo: null,
-  visitMode: VisitMode.VISIT_MODE_LOGIN,
+  // 默认按访客处理：打开域名先看到导航前端，而不是登录框。
+  // 有 token 时 updateLocalUserInfo() 会把真实的 visitMode 覆盖回来。
+  visitMode: VisitMode.VISIT_MODE_PUBLIC,
 }
 
 export const useAuthStore = defineStore('auth-store', {
@@ -43,7 +45,8 @@ export const useAuthStore = defineStore('auth-store', {
     },
 
     removeToken() {
-      this.$state = defaultState
+      // 用浅拷贝，别把 defaultState 这个模块级常量当可变对象改脏
+      this.$state = { ...defaultState }
       hRemoveToken()
     },
   },

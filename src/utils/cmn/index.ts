@@ -4,7 +4,7 @@ import type { NotificationReactive } from 'naive-ui'
 import { NButton, createDiscreteApi } from 'naive-ui'
 import { useAuthStore, useNoticeStore, useUserStore } from '@/store'
 import { getAuthInfo } from '@/api/system/user'
-import type { VisitMode } from '@/enums/auth'
+import { VisitMode } from '@/enums/auth'
 import { getListByDisplayType as getListByDisplayTypeApi } from '@/api/notice'
 
 const noticeStore = useNoticeStore()
@@ -109,6 +109,12 @@ export async function updateLocalUserInfo() {
   }
 
   const { data } = await getAuthInfo<Req>()
+  // 访客模式没配公开账号时后端返回 1001，此时 data 为空。
+  // 以前这里直接解引用 data.user 会抛 TypeError，整页白掉。
+  if (!data || !data.user) {
+    authStore.setVisitMode(VisitMode.VISIT_MODE_PUBLIC)
+    return
+  }
   userStore.updateUserInfo({ headImage: data.user.headImage, name: data.user.name })
   authStore.setUserInfo(data.user)
   authStore.setVisitMode(data.visitMode)

@@ -6,6 +6,15 @@ import { useAppStore, useAuthStore } from '@/store'
 import { router } from '@/router'
 
 let loginMessageShow = false
+
+// 前台页面（首页导航 / 面板）不因为「未登录」被打回登录页。
+// 访客模式没配公开账号时后端返回 1001，这里以前直接 router.push('/login')，
+// 结果打开域名第一眼就是登录框 —— 不是我们要的产品形态。
+function isFrontStage() {
+  const path = router.currentRoute.value?.path || '/'
+  return path === '/' || path === '/index.html' || path.startsWith('/panel')
+}
+
 export interface HttpOption {
   url: string
   data?: any
@@ -34,12 +43,18 @@ function http<T = any>(
     if (res.data.code === 0)
       return res.data
 
+    // 1000 / 1001：未登录或 token 过期。
+    // 前台（首页）只清 token，不跳登录、不弹「登录过期」—— 访客就该直接看到导航。
     if (res.data.code === 1001) {
+      authStore.removeToken()
+
+      if (isFrontStage())
+        return res.data
+
       // 避免重复弹窗
       if (loginMessageShow === false) {
         loginMessageShow = true
         message.warning(t('api.loginExpires'), {
-        // message.warning('登录过期', {
           onLeave() {
             loginMessageShow = false
           },
@@ -47,13 +62,16 @@ function http<T = any>(
       }
 
       router.push({ path: '/login' })
-      authStore.removeToken()
       return res.data
     }
 
     if (res.data.code === 1000) {
-      router.push({ path: '/login' })
       authStore.removeToken()
+
+      if (isFrontStage())
+        return res.data
+
+      router.push({ path: '/login' })
       return res.data
     }
 

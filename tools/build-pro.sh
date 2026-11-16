@@ -3,7 +3,7 @@
 #
 # 输入：release 解压目录（含 sun-panel 或 awadaoh 二进制 + web/）
 # 输出：<OUT>/awadaoh        已解锁 PRO 的后端二进制
-#       <OUT>/web/           已注入导航站主题、已解锁 isPro 的前端包
+#       <OUT>/web/           我们自己 src/ 的编译产物（dist）+ 上游 custom/static 挂载点 + 注入的主题
 #
 # 用法：
 #   ./tools/build-pro.sh /path/to/sun-panel_vX_linux_arm64
@@ -40,10 +40,31 @@ case "$EXPECT" in
   *) EXPECT="" ;;
 esac
 
-echo "==> 复制二进制与前端"
+echo "==> 复制二进制"
 cp "$BIN" "$OUT/awadaoh"
 chmod +x "$OUT/awadaoh"
-cp -r "$SRC/web" "$OUT/web"
+
+# 前端必须用我们自己的 dist（由 src/ 编译而来）。
+# 以前这里 cp 的是 $SRC/web，也就是上游预编译前端包，所以镜像里跑的从来不是我们的界面：
+# 打开域名第一眼是登录框，左侧分类栏 / 搜索框 / 前台无登录统统不在。
+# 上游 web 里只有 custom/ static/ micro-apps/ 这几个运行时挂载点需要保留。
+if [ ! -f "$ROOT/dist/index.html" ]; then
+  echo
+  echo "构建中止：$ROOT/dist/index.html 不存在。"
+  echo "前端要用我们自己的源码产物，先跑："
+  echo "  npm ci && npm run build"
+  exit 1
+fi
+
+echo "==> 前端: 使用 $ROOT/dist（自有源码产物）"
+rm -rf "$OUT/web"
+cp -r "$ROOT/dist" "$OUT/web"
+for d in custom static micro-apps; do
+  if [ -d "$SRC/web/$d" ] && [ ! -d "$OUT/web/$d" ]; then
+    cp -r "$SRC/web/$d" "$OUT/web/$d"
+    echo "    补入上游挂载点: $d/"
+  fi
+done
 
 # 这一行是整个脚本里最重要的一行。
 # buildx 打 linux/arm64 标签时不会检查 COPY 进去的文件是不是 arm64；
@@ -67,7 +88,9 @@ echo "==> 前端补丁: isPro -> !0（兜底，后端已返回 true 时无命中
 "$PY" "$ROOT/tools/patch-web.py" "$OUT/web" || true
 
 echo "==> 前端主题注入: 导航站视觉 + 自有 logo"
-"$PY" "$ROOT/tools/web-inject.py" "$OUT/web"
+# --no-catnav：前端现在是自己的 dist，左侧分类栏已经编在 src/ 里了。
+# 再往 /custom/index.js 塞一份 DOM 补丁会出现两条分类栏。
+"$PY" "$ROOT/tools/web-inject.py" "$OUT/web" --no-catnav
 
 # 品牌收尾。放在最后：主题注入写进去的 css/js 也一起过一遍，
 # 免得前面换完、后面又被注回 Sun-Panel。
@@ -105,7 +128,7 @@ fi
 
 echo "==> 复核"
 "$PY" "$ROOT/tools/patch-pro.py" "$OUT/awadaoh" --check
-"$PY" "$ROOT/tools/web-inject.py" "$OUT/web" --check
+"$PY" "$ROOT/tools/web-inject.py" "$OUT/web" --no-catnav --check
 "$PY" "$ROOT/tools/rebrand.py" --bin "$OUT/awadaoh" --web "$OUT/web" --check
 # 打完补丁再核一次：补丁脚本若改错文件会当场炸掉
 "$PY" "$ROOT/tools/elfarch.py" "$OUT/awadaoh" ${EXPECT:+--expect "$EXPECT"}
