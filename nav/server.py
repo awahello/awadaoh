@@ -109,7 +109,7 @@ def default_config():
                      "desc": "代码托管", "icon": ""},
                     {"id": new_id("s"), "title": "Bing", "url": "https://www.bing.com",
                      "desc": "搜索", "icon": ""},
-                    {"id": new_id("s"), "title": "AKK DIY", "url": "https://www.akkdiy.cn",
+                    {"id": new_id("s"), "title": "Awadaoh", "url": "https://www.akkdiy.cn",
                      "desc": "我的站点", "icon": ""},
                 ],
             },
