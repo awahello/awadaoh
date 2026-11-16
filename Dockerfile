@@ -44,8 +44,19 @@ RUN apk add --no-cache bash gcc git musl-dev
 
 COPY ./service /build
 
+# 用 export 而不是 go env -w：go env -w 要写 $HOME/.config/go/env，
+# 容器里 HOME 或权限一变就整条 RUN 挂掉，报错还只剩一行 buildx 摘要，看不出原因。
+# 代理给两个源：proxy.golang.org 在 GitHub runner 上通，goproxy.cn 在国内/亚太 runner 上通，
+# 任意一个先命中就够，剩下的 direct 兜底。
 RUN set -eu; \
-    go env -w GO111MODULE=on GOPROXY=https://proxy.golang.org,direct; \
+    echo "== go 版本 =="; go version; \
+    export GOPROXY="https://proxy.golang.org,https://goproxy.cn,direct"; \
+    export GOSUMDB="sum.golang.org"; \
+    export GOTOOLCHAIN="local"; \
+    export GOFLAGS="-mod=mod"; \
+    echo "== 拉依赖（单独一步，网络问题会在这里就暴露）=="; \
+    go mod download; \
+    echo "== 编译（CGO_ENABLED=1，mattn/go-sqlite3 要 cgo）=="; \
     CGO_ENABLED=1 go build -trimpath \
       -ldflags="-s -w -X awadaoh/global.RUNCODE=release -X awadaoh/global.ISDOCKER=docker" \
       -o /build/awadaoh .; \
