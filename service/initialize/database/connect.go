@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"strings"
 	"awadaoh/lib/cmn"
 	"awadaoh/models"
 	"time"
@@ -178,4 +179,22 @@ func MigrateLegacyAdminUsername(db *gorm.DB) {
 		return
 	}
 	log.Printf("老库管理员用户名 %s -> %s（id=%d）", legacy, fixed, old.ID)
+}
+
+// 启动时把管理员账号打出来。
+// 为什么需要：上游默认用户名是 admin@sun.cc，我们改成了 admin；老库被上面那个函数
+// 改名之后密码还是上游那一套，用户照文档敲默认密码只会得到「用户名或密码错误」，
+// 而且根本不知道去哪儿看自己到底叫什么。打在启动日志里，一眼就能对上。
+func LogAdminAccounts(db *gorm.DB) {
+	var users []models.User
+	if err := db.Where("role = ?", 1).Order("id asc").Limit(10).Find(&users).Error; err != nil || len(users) == 0 {
+		return
+	}
+
+	names := make([]string, 0, len(users))
+	for _, u := range users {
+		names = append(names, u.Username)
+	}
+	log.Printf("管理员账号: %s", strings.Join(names, ", "))
+	log.Println("忘记密码就跑: docker exec -it <容器名> /app/awadaoh -password-reset（把第一个管理员的密码重置成默认值，并打印用户名）")
 }

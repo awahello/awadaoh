@@ -127,6 +127,9 @@ func DatabaseConnect() {
 
 	// 老库里的 admin@sun.cc 改成 admin，否则照文档登录永远是「账号或密码错误」
 	database.MigrateLegacyAdminUsername(global.Db)
+
+	// 把管理员账号打到启动日志里，省得用户对着「用户名或密码错误」猜账号
+	database.LogAdminAccounts(global.Db)
 }
 
 // 命令行运行

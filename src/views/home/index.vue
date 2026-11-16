@@ -48,6 +48,11 @@ const settingModalShow = ref(false)
 const items = ref<ItemGroup[]>([])
 const filterItems = ref<ItemGroup[]>([])
 
+// 能不能改内容：只有真正登录（不是访客模式）才可以。
+// 访客看到的每一处「添加 / 排序 / 可见性 / 右键编辑」都要走这个开关，
+// 少一处就会出现「未登录也能在前端点添加、弹出添加项目框」。
+const canEdit = computed(() => authStore.visitMode === VisitMode.VISIT_MODE_LOGIN)
+
 // 左侧分类筛选：null = 全部
 const activeGroupId = ref<number | null>(null)
 const totalItemCount = computed(() => filterItems.value.reduce((n, g) => n + (g.items?.length || 0), 0))
@@ -408,12 +413,16 @@ function handleSetSortStatus(groupIndex: number, sortStatus: boolean) {
 }
 
 function handleEditItem(item: Panel.ItemInfo) {
+  if (!canEdit.value)
+    return
   editItemInfoData.value = item
   editItemInfoShow.value = true
   currentAddItenIconGroupId.value = undefined
 }
 
 function handleAddItem(itemIconGroupId?: number) {
+  if (!canEdit.value)
+    return
   editItemInfoData.value = null
   editItemInfoShow.value = true
   if (itemIconGroupId)
@@ -492,7 +501,7 @@ function handleAddItem(itemIconGroupId?: number) {
             class="flex mx-auto"
           >
             <SystemMonitor
-              :allow-edit="authStore.visitMode === VisitMode.VISIT_MODE_LOGIN"
+              :allow-edit="canEdit"
               :show-title="panelState.panelConfig.systemMonitorShowTitle"
             />
           </div>
@@ -512,7 +521,7 @@ function handleAddItem(itemIconGroupId?: number) {
                 {{ itemGroup.title }}
               </span>
               <div
-                v-if="authStore.visitMode === VisitMode.VISIT_MODE_LOGIN"
+                v-if="canEdit"
                 class="group-buttons ml-2 delay-100 transition-opacity flex"
                 :class="itemGroup.hoverStatus ? 'opacity-100' : 'opacity-0'"
               >
@@ -555,7 +564,8 @@ function handleAddItem(itemIconGroupId?: number) {
                     />
                   </div>
 
-                  <div v-if="itemGroup.items.length === 0" class="not-drag">
+                  <!-- 空分组的「添加」占位卡：只有登录后才有，访客看到的是空分组 -->
+                  <div v-if="itemGroup.items.length === 0 && canEdit" class="not-drag">
                     <AppIcon
                       :class="itemGroup.sortStatus ? 'cursor-move' : 'cursor-pointer'"
                       :item-info="{ icon: { itemType: 3, text: 'subway:add' }, title: t('common.add'), url: '', openMethod: 0 }"
@@ -592,7 +602,7 @@ function handleAddItem(itemIconGroupId?: number) {
                     />
                   </div>
 
-                  <div v-if="itemGroup.items.length === 0" class="not-drag">
+                  <div v-if="itemGroup.items.length === 0 && canEdit" class="not-drag">
                     <AppIcon
                       class="cursor-pointer"
                       :item-info="{ icon: { itemType: 3, text: 'subway:add' }, title: $t('common.add'), url: '', openMethod: 0 }"
@@ -656,7 +666,7 @@ function handleAddItem(itemIconGroupId?: number) {
           </template>
         </NButton>
 
-        <NButton v-if="authStore.visitMode === VisitMode.VISIT_MODE_LOGIN" color="#2a2a2a6b" @click="settingModalShow = !settingModalShow">
+        <NButton v-if="canEdit" color="#2a2a2a6b" @click="settingModalShow = !settingModalShow">
           <template #icon>
             <SvgIcon class="text-white font-xl" icon="majesticons-applications" />
           </template>
