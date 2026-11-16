@@ -281,7 +281,7 @@ async function handleStartImport() {
     </div>
 
     <div class="flex justify-center">
-      <a href="https://awahello.github.io/awadaoh-tool-page/#/" target="_blank">{{ $t('apps.exportImport.transmuteStandard') }}</a>
+      <a href="/tools/bookmark.html" target="_blank">{{ $t('apps.exportImport.transmuteStandard') }}</a>
     </div>
 
     <!-- 调试模式 -->

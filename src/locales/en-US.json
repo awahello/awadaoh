@@ -256,7 +256,9 @@
     "openWanUrl": "Open WAN URL",
     "needIntranet": "This site is only reachable on the LAN — open it at home or in the office",
     "needIntranetConfirm": "This is a LAN address and you don't seem to be on the LAN right now. Open anyway?",
-    "autoLanMode": "LAN detected, switched to LAN mode"
+    "autoLanMode": "LAN detected, switched to LAN mode",
+    "selfHosted": "SELF-HOSTED",
+    "sites": "sites"
   },
   "settingUserInfo": {
     "confirmLogoutText": "Are you sure you want to logout?",

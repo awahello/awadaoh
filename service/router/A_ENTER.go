@@ -29,6 +29,10 @@ func InitRouters(addr string) error {
 		router.Static("/custom", webPath+"/custom")
 		router.StaticFile("/favicon.ico", webPath+"/favicon.ico")
 		router.StaticFile("/favicon.svg", webPath+"/favicon.svg")
+		// 书签转换工具是纯前端单页（public/tools/bookmark.html），
+		// 以前这里挂的是 awahello.github.io 上一个并不存在的页面，
+		// 点进去 404 —— 现在自己托管，离线也能用
+		router.StaticFile("/tools/bookmark.html", webPath+"/tools/bookmark.html")
 	}
 
 	// 上传的文件

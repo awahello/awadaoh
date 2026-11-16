@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>浏览器书签转换工具 · Awadaoh</title>
+<link rel="icon" href="/favicon.svg">
+<style>
+	:root {
+		--bg: #090D16;
+		--panel: #121927;
+		--panel-2: #182033;
+		--panel-3: #1E2740;
+		--line: rgba(255, 255, 255, 0.075);
+		--line-strong: rgba(255, 255, 255, 0.14);
+		--text: #E9EDF7;
+		--text-2: #99A3BE;
+		--text-3: #65708D;
+		--brand: #5B6CFF;
+		--brand-hi: #7C8AFF;
+		--accent: #22D3C5;
+		--ok: #34D399;
+		--bad: #F87171;
+		--r: 13px;
+		--mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+	}
+
+	* { box-sizing: border-box; }
+
+	body {
+		margin: 0;
+		min-height: 100vh;
+		background:
+			radial-gradient(900px 520px at 8% -12%, rgba(91, 108, 255, 0.30), transparent 62%),
+			radial-gradient(760px 480px at 102% 108%, rgba(34, 211, 197, 0.18), transparent 62%),
+			var(--bg);
+		color: var(--text);
+		font-family: "Inter", "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", -apple-system, sans-serif;
+		font-size: 14px;
+		line-height: 1.5;
+	}
+
+	.wrap { max-width: 880px; margin: 0 auto; padding: 32px 20px 60px; }
+
+	.head { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+
+	.mark {
+		width: 38px; height: 38px; border-radius: 12px;
+		background: linear-gradient(135deg, var(--brand), var(--accent));
+		display: grid; place-items: center; font-size: 19px;
+		box-shadow: 0 8px 20px rgba(91, 108, 255, 0.4);
+	}
+
+	h1 { margin: 0; font-size: 19px; font-weight: 700; letter-spacing: 0.2px; }
+
+	.sub { margin: 0 0 22px 50px; color: var(--text-3); font-size: 12.5px; }
+
+	.card {
+		border: 1px solid var(--line);
+		border-radius: var(--r);
+		background: var(--panel);
+		padding: 18px;
+		margin-bottom: 14px;
+	}
+
+	.card h2 {
+		margin: 0 0 4px;
+		font-size: 13px;
+		font-weight: 700;
+		letter-spacing: 0.3px;
+		color: var(--text-2);
+		text-transform: uppercase;
+	}
+
+	.card p.hint { margin: 0 0 14px; color: var(--text-3); font-size: 12px; }
+
+	.drop {
+		display: grid;
+		place-items: center;
+		gap: 6px;
+		padding: 26px 16px;
+		border: 1.5px dashed var(--line-strong);
+		border-radius: var(--r);
+		background: var(--panel-2);
+		color: var(--text-3);
+		font-size: 13px;
+		cursor: pointer;
+		transition: border-color 0.18s, background 0.18s;
+	}
+
+	.drop:hover, .drop.hot {
+		border-color: var(--brand);
+		background: rgba(91, 108, 255, 0.08);
+		color: var(--text-2);
+	}
+
+	.drop b { color: var(--text); font-weight: 600; }
+
+	.row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+
+	button {
+		height: 36px;
+		padding: 0 16px;
+		border: 0;
+		border-radius: 10px;
+		background: var(--brand);
+		color: #fff;
+		font-size: 13px;
+		font-weight: 600;
+		font-family: inherit;
+		cursor: pointer;
+		transition: background 0.18s, opacity 0.18s;
+	}
+
+	button:hover { background: var(--brand-hi); }
+
+	button:disabled { opacity: 0.45; cursor: default; background: var(--brand); }
+
+	button.ghost {
+		background: transparent;
+		border: 1px solid var(--line-strong);
+		color: var(--text-2);
+	}
+
+	button.ghost:hover { background: var(--panel-2); color: var(--text); }
+
+	.stat { display: flex; gap: 22px; flex-wrap: wrap; margin-bottom: 14px; }
+
+	.stat div { font-size: 12px; color: var(--text-3); }
+
+	.stat b { display: block; font-size: 20px; color: var(--text); font-variant-numeric: tabular-nums; }
+
+	table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+
+	th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); }
+
+	th { color: var(--text-3); font-weight: 500; font-size: 11.5px; }
+
+	td { color: var(--text-2); }
+
+	td.url {
+		font-family: var(--mono);
+		font-size: 11.5px;
+		color: var(--accent);
+		max-width: 380px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.err { color: var(--bad); font-size: 12.5px; margin-top: 10px; }
+
+	.ok { color: var(--ok); font-size: 12.5px; margin-top: 10px; }
+
+	.foot { margin-top: 26px; text-align: center; font-size: 12px; color: var(--text-3); }
+
+	.foot a { color: var(--text-3); }
+
+	code { font-family: var(--mono); font-size: 11.5px; color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+	<div class="head">
+		<div class="mark">⇄</div>
+		<h1>浏览器书签转换工具</h1>
+	</div>
+	<p class="sub">在 Chrome 书签 HTML、Chrome 的 Bookmarks JSON、CSV 之间互转。全部在本地浏览器里算，文件不上传。</p>
+
+	<div class="card">
+		<h2>① 选一个书签文件</h2>
+		<p class="hint">支持浏览器「导出书签」得到的 <code>.html</code>，也支持 Chrome / Edge 用户目录里的 <code>Bookmarks</code>（JSON）。</p>
+		<div class="drop" id="drop">
+			<div>把文件拖到这里，或者 <b>点一下选择文件</b></div>
+			<div style="font-size:11.5px">.html / .htm / .json / .txt</div>
+		</div>
+		<input id="file" type="file" accept=".html,.htm,.json,.txt" style="display:none">
+		<div id="msg"></div>
+	</div>
+
+	<div class="card" id="result" style="display:none">
+		<h2>② 解析结果</h2>
+		<div class="stat">
+			<div><b id="nGroups">0</b>个分组</div>
+			<div><b id="nSites">0</b>个站点</div>
+			<div><b id="nPrivate">0</b>个内网地址</div>
+		</div>
+		<div style="max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:10px">
+			<table>
+				<thead><tr><th style="width:120px">分组</th><th>标题</th><th>地址</th></tr></thead>
+				<tbody id="tbody"></tbody>
+			</table>
+		</div>
+	</div>
+
+	<div class="card" id="export" style="display:none">
+		<h2>③ 导出</h2>
+		<p class="hint">选一个格式下载。导进浏览器就用 <code>.html</code>；要自己处理数据用 <code>.json</code> 或 <code>.csv</code>。</p>
+		<div class="row">
+			<button id="expHtml">导出书签 HTML</button>
+			<button id="expJson" class="ghost">导出 Chrome JSON</button>
+			<button id="expCsv" class="ghost">导出 CSV</button>
+		</div>
+	</div>
+
+	<p class="foot"><a href="/">← 返回导航</a></p>
+</div>
+
+<script>
+(function () {
+	'use strict';
+
+	var $ = function (s) { return document.querySelector(s); };
+
+	// 统一结构：[{ name, sites: [{ title, url, desc }] }]
+	var groups = [];
+
+	/* ── 解析：Netscape 书签 HTML ───────────────────── */
+	function parseNetscape(text) {
+		var doc = new DOMParser().parseFromString(text, 'text/html');
+		var out = [];
+		var top = { name: '书签栏', sites: [] };
+		out.push(top);
+
+		// 每个 H3 后面紧跟一个 DL，DL 里的 A 属于这个 H3
+		function walk(dl, group) {
+			var nodes = dl.children;
+			for (var i = 0; i < nodes.length; i++) {
+				var el = nodes[i];
+				if (el.tagName === 'DT') {
+					var h3 = el.querySelector('h3');
+					var a = el.querySelector('a');
+					if (h3) {
+						var g = { name: (h3.textContent || '').trim() || '未命名', sites: [] };
+						out.push(g);
+						var sub = el.querySelector('dl') || (el.nextElementSibling && el.nextElementSibling.tagName === 'DL' ? el.nextElementSibling : null);
+						if (sub)
+							walk(sub, g);
+					}
+					else if (a) {
+						var href = a.getAttribute('href') || '';
+						if (href && href.toLowerCase().indexOf('javascript:') !== 0) {
+							group.sites.push({
+								title: (a.textContent || '').trim() || href,
+								url: href,
+								desc: a.getAttribute('description') || ''
+							});
+						}
+					}
+				}
+				else if (el.tagName === 'DL') {
+					walk(el, group);
+				}
+			}
+		}
+
+		var rootDl = doc.querySelector('dl');
+		if (rootDl)
+			walk(rootDl, top);
+
+		return out.filter(function (g) { return g.sites.length > 0; });
+	}
+
+	/* ── 解析：Chrome Bookmarks JSON ────────────────── */
+	function parseChromeJson(text) {
+		var data = JSON.parse(text);
+		var roots = data.roots || {};
+		var out = [];
+
+		function walk(node, group) {
+			var children = node.children || [];
+			for (var i = 0; i < children.length; i++) {
+				var ch = children[i];
+				if (ch.type === 'url' && ch.url) {
+					group.sites.push({ title: ch.name || ch.url, url: ch.url, desc: '' });
+				}
+				else if (ch.type === 'folder') {
+					var name = (ch.name || '').trim() || '未命名';
+					var g = { name: name, sites: [] };
+					out.push(g);
+					walk(ch, g);
+				}
+			}
+		}
+
+		var names = { bookmark_bar: '书签栏', other: '其他书签', synced: '移动设备书签' };
+		Object.keys(names).forEach(function (k) {
+			if (!roots[k])
+				return;
+			var g = { name: names[k], sites: [] };
+			out.push(g);
+			walk(roots[k], g);
+		});
+
+		return out.filter(function (g) { return g.sites.length > 0; });
+	}
+
+	/* ── 生成：Netscape HTML ───────────────────────── */
+	function esc(s) {
+		return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+			return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+		});
+	}
+
+	function toNetscape() {
+		var now = Math.floor(Date.now() / 1000);
+		var out = [
+			'<!DOCTYPE NETSCAPE-Bookmark-file-1>',
+			'<!-- Generated by Awadaoh bookmark tool -->',
+			'<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">',
+			'<TITLE>Bookmarks</TITLE>',
+			'<H1>Bookmarks</H1>',
+			'<DL><p>'
+		];
+		groups.forEach(function (g) {
+			out.push('    <DT><H3 ADD_DATE="' + now + '">' + esc(g.name) + '</H3>');
+			out.push('    <DL><p>');
+			g.sites.forEach(function (s) {
+				var attrs = 'ADD_DATE="' + now + '"';
+				if (s.desc)
+					attrs += ' DESCRIPTION="' + esc(s.desc) + '"';
+				out.push('        <DT><A HREF="' + esc(s.url) + '" ' + attrs + '>' + esc(s.title) + '</A>');
+			});
+			out.push('    </DL><p>');
+		});
+		out.push('</DL><p>');
+		return out.join('\n') + '\n';
+	}
+
+	/* ── 生成：Chrome Bookmarks JSON ───────────────── */
+	function toChromeJson() {
+		var id = 1;
+
+		function nextId() { return String(id++); }
+
+		function folder(name, sites) {
+			var node = {
+				children: [],
+				date_added: String(Date.now() * 1000),
+				date_last_used: '0',
+				date_modified: String(Date.now() * 1000),
+				guid: 'awadaoh-' + Math.random().toString(16).slice(2, 14),
+				id: nextId(),
+				name: name,
+				type: 'folder'
+			};
+			sites.forEach(function (s) {
+				node.children.push({
+					date_added: String(Date.now() * 1000),
+					date_last_used: '0',
+					guid: 'awadaoh-' + Math.random().toString(16).slice(2, 14),
+					id: nextId(),
+					name: s.title,
+					type: 'url',
+					url: s.url
+				});
+			});
+			return node;
+		}
+
+		var bar = groups[0] ? folder(groups[0].name, groups[0].sites) : folder('书签栏', []);
+		var other = { children: [], date_added: '0', date_last_used: '0', date_modified: '0', guid: 'awadaoh-other', id: nextId(), name: '其他书签', type: 'folder' };
+		for (var i = 1; i < groups.length; i++)
+			other.children.push(folder(groups[i].name, groups[i].sites));
+
+		var data = {
+			checksum: '',
+			roots: {
+				bookmark_bar: bar,
+				other: other,
+				synced: { children: [], date_added: '0', date_last_used: '0', date_modified: '0', guid: 'awadaoh-synced', id: nextId(), name: '移动设备书签', type: 'folder' }
+			},
+			version: 1
+		};
+		return JSON.stringify(data, null, 3);
+	}
+
+	/* ── 生成：CSV ─────────────────────────────────── */
+	function toCsv() {
+		function cell(s) {
+			return '"' + String(s == null ? '' : s).replace(/"/g, '""') + '"';
+		}
+		var rows = ['分组,标题,地址,描述'];
+		groups.forEach(function (g) {
+			g.sites.forEach(function (s) {
+				rows.push([cell(g.name), cell(s.title), cell(s.url), cell(s.desc)].join(','));
+			});
+		});
+		// 加 BOM，Excel 打开不乱码
+		return '\uFEFF' + rows.join('\r\n') + '\r\n';
+	}
+
+	/* ── 内网判断（和导航站同一套规则）──────────────── */
+	var PRIVATE_TLDS = ['local', 'localhost', 'lan', 'internal', 'intranet', 'intra',
+		'corp', 'home', 'localdomain', 'svc', 'cluster', 'priv', 'private'];
+
+	function isPrivate(url) {
+		var u = String(url || '').trim().toLowerCase();
+		if (!u) return false;
+		if (/^(file|smb):\/\//.test(u) || u.indexOf('\\\\') === 0) return true;
+		var host = '';
+		try { host = new URL(u).hostname; }
+		catch (e) { return false; }
+		host = host.toLowerCase().replace(/^\[/, '').replace(/\]$/, '').replace(/\.$/, '');
+		if (!host) return false;
+
+		var m = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+		if (m) {
+			var a = +m[1], b = +m[2];
+			if (a === 10 || a === 127 || a === 0) return true;
+			if (a === 192 && b === 168) return true;
+			if (a === 172 && b >= 16 && b <= 31) return true;
+			if (a === 169 && b === 254) return true;
+			if (a === 100 && b >= 64 && b <= 127) return true;
+			return a >= 224;
+		}
+		if (host.indexOf(':') >= 0) {
+			if (host === '::1' || host === '::') return true;
+			if (/^f[cd][0-9a-f]{2}:/.test(host)) return true;
+			if (/^fe[89ab][0-9a-f]:/.test(host)) return true;
+			return false;
+		}
+		if (host === 'localhost' || host === 'localhost.localdomain') return true;
+		if (host.indexOf('.') < 0) return true;
+		if (PRIVATE_TLDS.indexOf(host.split('.').pop()) >= 0) return true;
+		if (/\.(home\.arpa|in-addr\.arpa)$/.test(host)) return true;
+		return false;
+	}
+
+	/* ── 交互 ─────────────────────────────────────── */
+	function say(text, bad) {
+		var el = $('#msg');
+		el.className = bad ? 'err' : 'ok';
+		el.textContent = text;
+	}
+
+	function render() {
+		var nSites = 0, nPrivate = 0, rows = '';
+		groups.forEach(function (g) {
+			g.sites.forEach(function (s) {
+				nSites++;
+				var p = isPrivate(s.url);
+				if (p) nPrivate++;
+				rows += '<tr><td>' + esc(g.name) + '</td><td>' + esc(s.title)
+					+ (p ? ' <span style="color:var(--bad)">🔒</span>' : '')
+					+ '</td><td class="url" title="' + esc(s.url) + '">' + esc(s.url) + '</td></tr>';
+			});
+		});
+		$('#nGroups').textContent = groups.length;
+		$('#nSites').textContent = nSites;
+		$('#nPrivate').textContent = nPrivate;
+		$('#tbody').innerHTML = rows;
+		$('#result').style.display = groups.length ? 'block' : 'none';
+		$('#export').style.display = groups.length ? 'block' : 'none';
+	}
+
+	function handleText(text, filename) {
+		var t = text.replace(/^\uFEFF/, '').trim();
+		var parsed = [];
+		try {
+			if (t.charAt(0) === '{')
+				parsed = parseChromeJson(t);
+			else
+				parsed = parseNetscape(t);
+		}
+		catch (e) {
+			say('解析失败：' + e.message, true);
+			return;
+		}
+		if (!parsed.length) {
+			say('没解析到书签。确认选的是浏览器「导出书签」的文件，或者 Chrome 的 Bookmarks 文件。', true);
+			$('#result').style.display = 'none';
+			$('#export').style.display = 'none';
+			return;
+		}
+		groups = parsed;
+		var n = groups.reduce(function (a, g) { return a + g.sites.length; }, 0);
+		say('已读取 ' + filename + '：' + groups.length + ' 个分组 / ' + n + ' 个站点');
+		render();
+	}
+
+	function handleFile(file) {
+		if (!file) return;
+		var r = new FileReader();
+		r.onload = function () { handleText(String(r.result || ''), file.name); };
+		r.onerror = function () { say('读文件失败', true); };
+		r.readAsText(file, 'utf-8');
+	}
+
+	function download(text, name, mime) {
+		var blob = new Blob([text], { type: mime });
+		var a = document.createElement('a');
+		var u = URL.createObjectURL(blob);
+		a.href = u;
+		a.download = name;
+		document.body.appendChild(a);
+		a.click();
+		a.remove();
+		setTimeout(function () { URL.revokeObjectURL(u); }, 5000);
+	}
+
+	function stamp() {
+		var d = new Date();
+		function p(n) { return (n < 10 ? '0' : '') + n; }
+		return d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate());
+	}
+
+	var drop = $('#drop');
+	var fileInput = $('#file');
+
+	drop.addEventListener('click', function () { fileInput.click(); });
+	fileInput.addEventListener('change', function () {
+		if (fileInput.files.length) handleFile(fileInput.files[0]);
+	});
+	['dragenter', 'dragover'].forEach(function (ev) {
+		drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add('hot'); });
+	});
+	['dragleave', 'drop'].forEach(function (ev) {
+		drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove('hot'); });
+	});
+	drop.addEventListener('drop', function (e) {
+		if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+	});
+
+	$('#expHtml').addEventListener('click', function () {
+		download(toNetscape(), 'bookmarks-' + stamp() + '.html', 'text/html;charset=utf-8');
+	});
+	$('#expJson').addEventListener('click', function () {
+		download(toChromeJson(), 'Bookmarks-' + stamp() + '.json', 'application/json;charset=utf-8');
+	});
+	$('#expCsv').addEventListener('click', function () {
+		download(toCsv(), 'bookmarks-' + stamp() + '.csv', 'text/csv;charset=utf-8');
+	});
+})();
+</script>
+</body>
+</html>

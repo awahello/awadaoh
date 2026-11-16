@@ -160,7 +160,11 @@ func NotFoundAndCreateUser(db *gorm.DB) error {
 // 老库兼容：上游默认管理员用户名是 admin@sun.cc，我们改成了 admin。
 // 已经在跑的实例库里还留着旧名字，用户照着文档敲 admin 只会得到
 // 「账号或密码错误」，然后以为密码也不对（这就是「默认账号密码是错的」的由来）。
-// 这里做一次幂等改名：只在「旧名字存在」且「新名字还没被占用」时动手。
+//
+// 分两步，都幂等：
+//  1. username 是 admin@sun.cc 的改名为 admin（新名字已被占用就跳过）
+//  2. name（昵称）/ mail 还是 admin@sun.cc 的一起改掉 —— 第 1 步不碰这两个字段，
+//     结果设置页「昵称」还显示 admin@sun.cc，看着像改名没生效
 func MigrateLegacyAdminUsername(db *gorm.DB) {
 	const (
 		legacy = "admin@sun.cc"
@@ -168,21 +172,40 @@ func MigrateLegacyAdminUsername(db *gorm.DB) {
 	)
 
 	var n int64
-	if err := db.Model(&models.User{}).Where("username = ?", fixed).Count(&n).Error; err != nil || n > 0 {
+	if err := db.Model(&models.User{}).Where("username = ?", fixed).Count(&n).Error; err != nil {
 		return
+	}
+	if n == 0 {
+		old := models.User{}
+		if err := db.Where("username = ?", legacy).First(&old).Error; err == nil {
+			if err := db.Model(&models.User{}).Where("id = ?", old.ID).
+				Update("username", fixed).Error; err != nil {
+				log.Println("老库管理员改名失败:", err)
+			} else {
+				log.Printf("老库管理员用户名 %s -> %s（id=%d）", legacy, fixed, old.ID)
+			}
+		}
 	}
 
-	old := models.User{}
-	if err := db.Where("username = ?", legacy).First(&old).Error; err != nil {
+	var cur models.User
+	if err := db.Where("username = ?", fixed).Order("id asc").First(&cur).Error; err != nil {
 		return
 	}
-
-	if err := db.Model(&models.User{}).Where("id = ?", old.ID).
-		Update("username", fixed).Error; err != nil {
-		log.Println("老库管理员改名失败:", err)
+	fix := map[string]interface{}{}
+	if cur.Name == legacy {
+		fix["name"] = fixed
+	}
+	if cur.Mail == legacy {
+		fix["mail"] = fixed
+	}
+	if len(fix) == 0 {
 		return
 	}
-	log.Printf("老库管理员用户名 %s -> %s（id=%d）", legacy, fixed, old.ID)
+	if err := db.Model(&models.User{}).Where("id = ?", cur.ID).Updates(fix).Error; err != nil {
+		log.Println("老库管理员昵称/邮箱修正失败:", err)
+		return
+	}
+	log.Printf("老库管理员昵称/邮箱 %s -> %s（id=%d）", legacy, fixed, cur.ID)
 }
 
 // ResetAdminPassword 把第一个管理员的密码打回出厂默认值，并清掉 token。

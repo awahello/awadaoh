@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { VueDraggable } from 'vue-draggable-plus'
-import { NBackTop, NButton, NButtonGroup, NDropdown, NModal, NSkeleton, NSpin, useDialog, useMessage } from 'naive-ui'
+import { NDropdown, NModal, NSkeleton, NSpin, useDialog, useMessage } from 'naive-ui'
 import { nextTick, onMounted, ref, computed } from 'vue'
-import { AppIcon, AppStarter, EditItem } from './components'
-import { Clock, SearchBox, SystemMonitor } from '@/components/deskModule'
-import { SvgIcon } from '@/components/common'
+import { AppStarter, EditItem } from './components'
+import { SearchBox, SystemMonitor } from '@/components/deskModule'
+import { ItemIcon, SvgIcon } from '@/components/common'
 import { deletes, getClientEnv, getListByGroupId, saveSort } from '@/api/panel/itemIcon'
 import { edit as editGroup, getList as getGroupList } from '@/api/panel/itemIconGroup'
 
@@ -52,6 +52,9 @@ const filterItems = ref<ItemGroup[]>([])
 // 访客看到的每一处「添加 / 排序 / 可见性 / 右键编辑」都要走这个开关，
 // 少一处就会出现「未登录也能在前端点添加、弹出添加项目框」。
 const canEdit = computed(() => authStore.visitMode === VisitMode.VISIT_MODE_LOGIN)
+
+// 侧栏左上角那个渐变方块里的字：取站点名首字母，没配就 A
+const brandMark = computed(() => (panelState.panelConfig.logoText || 'A').trim().charAt(0).toUpperCase() || 'A')
 
 // 左侧分类筛选：null = 全部
 const activeGroupId = ref<number | null>(null)
@@ -430,213 +433,188 @@ function handleAddItem(itemIconGroupId?: number) {
 }
 </script>
 
+
 <template>
-  <div class="w-full h-full sun-main">
+  <div class="nav-shell">
+    <!-- 壁纸：面板老配置里有图就用，没有就是 nav 那套纯深色 + 环境光 -->
     <div
-      class="cover wallpaper" :style="{
+      v-if="panelState.panelConfig.backgroundImageSrc"
+      class="wallpaper" :style="{
         filter: `blur(${panelState.panelConfig.backgroundBlur}px)`,
         background: `url(${panelState.panelConfig.backgroundImageSrc}) no-repeat`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
       }"
     />
-    <div class="mask" :style="{ backgroundColor: `rgba(0,0,0,${panelState.panelConfig.backgroundMaskNumber})` }" />
-    <div ref="scrollContainerRef" class="absolute w-full h-full overflow-auto">
-      <div
-        class="p-2.5 mx-auto"
-        :style="{
-          marginTop: `${panelState.panelConfig.marginTop}%`,
-          marginBottom: `${panelState.panelConfig.marginBottom}%`,
-          maxWidth: (panelState.panelConfig.maxWidth ?? '1200') + panelState.panelConfig.maxWidthUnit,
-        }"
-      >
-        <!-- 头 -->
-        <div class="mx-[auto] w-[80%]">
-          <div class="flex mx-[auto] items-center justify-center text-white">
-            <div class="logo">
-              <span class="text-2xl md:text-6xl font-bold text-shadow">
-                {{ panelState.panelConfig.logoText }}
-              </span>
-            </div>
-            <div class="divider text-base lg:text-2xl mx-[10px]">
-              |
-            </div>
-            <div class="text-shadow">
-              <Clock :hide-second="!panelState.panelConfig.clockShowSecond" />
-            </div>
-          </div>
-          <div v-if="panelState.panelConfig.searchBoxShow" class="flex mt-[20px] mx-auto sm:w-full lg:w-[80%]">
-            <SearchBox @itemSearch="itemFrontEndSearch" />
-          </div>
+    <div
+      v-if="panelState.panelConfig.backgroundImageSrc"
+      class="wallpaper-mask" :style="{ backgroundColor: `rgba(0,0,0,${panelState.panelConfig.backgroundMaskNumber})` }"
+    />
+
+    <!-- ── 左侧分类栏 ─────────────────────────────────── -->
+    <aside class="side">
+      <div class="brand">
+        <div class="brand-mark">{{ brandMark }}</div>
+        <div class="brand-text">
+          <div class="brand-name">{{ panelState.panelConfig.logoText || 'Awadaoh' }}</div>
+          <div class="brand-sub">{{ t('panelHome.selfHosted') }}</div>
         </div>
+      </div>
 
-        <!-- 应用盒子 -->
-        <div class="flex gap-2 items-start" :style="{ marginLeft: `${panelState.panelConfig.marginX}px`, marginRight: `${panelState.panelConfig.marginX}px` }">
-          <!-- 左侧分类栏：点一下只看这一组，再点回到全部 -->
-          <aside v-if="filterItems.length > 1" class="cat-rail">
-            <button
-              class="cat-item" :class="{ 'is-on': activeGroupId === null }"
-              @click="activeGroupId = null"
-            >
-              <span class="cat-name">{{ t('common.all') }}</span>
-              <span class="cat-count">{{ totalItemCount }}</span>
-            </button>
-            <button
-              v-for="g in filterItems" :key="g.id"
-              class="cat-item" :class="{ 'is-on': activeGroupId === g.id }"
-              :title="g.title"
-              @click="activeGroupId = activeGroupId === g.id ? null : (g.id ?? null)"
-            >
-              <span class="cat-name">{{ g.title }}</span>
-              <span class="cat-count">{{ (g.items || []).length }}</span>
-            </button>
-          </aside>
+      <nav class="cats">
+        <button class="cat" :class="{ 'is-on': activeGroupId === null }" @click="activeGroupId = null">
+          <span class="cat-name">{{ t('common.all') }}</span>
+          <span class="cat-num">{{ totalItemCount }}</span>
+        </button>
+        <button
+          v-for="g in filterItems" :key="g.id" class="cat"
+          :class="{ 'is-on': activeGroupId === g.id }" :title="g.title"
+          @click="activeGroupId = activeGroupId === g.id ? null : (g.id ?? null)"
+        >
+          <span class="cat-name">{{ g.title }}</span>
+          <span class="cat-num">{{ (g.items || []).length }}</span>
+        </button>
+      </nav>
 
-          <div class="flex-1 min-w-0">
-          <!-- 系统监控状态 -->
-          <div
+      <div class="side-foot">
+        <span class="stat"><i class="dot" />{{ totalItemCount }} {{ t('panelHome.sites') }}</span>
+        <button v-if="canEdit" class="icon-btn" :title="t('common.style')" @click="settingModalShow = true">
+          <SvgIcon icon="majesticons-applications" />
+        </button>
+      </div>
+    </aside>
+
+    <!-- ── 右侧主区 ──────────────────────────────────── -->
+    <main class="main">
+      <header class="top">
+        <div v-if="panelState.panelConfig.searchBoxShow" class="search-wrap">
+          <SearchBox @itemSearch="itemFrontEndSearch" />
+        </div>
+        <div class="top-actions">
+          <button
+            v-if="panelState.networkMode === PanelStateNetworkModeEnum.lan && panelState.panelConfig.netModeChangeButtonShow"
+            class="icon-btn" :title="t('panelHome.changeToWanModel')"
+            @click="handleChangeNetwork(PanelStateNetworkModeEnum.wan)"
+          >
+            <SvgIcon icon="material-symbols:lan-outline-rounded" />
+          </button>
+          <button
+            v-if="panelState.networkMode === PanelStateNetworkModeEnum.wan && panelState.panelConfig.netModeChangeButtonShow"
+            class="icon-btn" :title="t('panelHome.changeToLanModel')"
+            @click="handleChangeNetwork(PanelStateNetworkModeEnum.lan)"
+          >
+            <SvgIcon icon="mdi:wan" />
+          </button>
+          <button v-if="canEdit" class="icon-btn" :title="t('common.style')" @click="settingModalShow = true">
+            <SvgIcon icon="majesticons-applications" />
+          </button>
+          <button
+            v-if="authStore.visitMode === VisitMode.VISIT_MODE_PUBLIC"
+            class="icon-btn" :title="t('panelHome.goToLogin')" @click="router.push('/login')"
+          >
+            <SvgIcon icon="material-symbols:account-circle" />
+          </button>
+        </div>
+      </header>
+
+      <div ref="scrollContainerRef" class="scroll">
+        <div class="content">
+          <!-- 系统状态：跟分组一个样式，别单独搞一块浮在中间 -->
+          <section
             v-if="panelState.panelConfig.systemMonitorShow
               && ((panelState.panelConfig.systemMonitorPublicVisitModeShow && authStore.visitMode === VisitMode.VISIT_MODE_PUBLIC)
                 || authStore.visitMode === VisitMode.VISIT_MODE_LOGIN)"
-            class="flex mx-auto"
+            class="group is-monitor"
           >
-            <SystemMonitor
-              :allow-edit="canEdit"
-              :show-title="panelState.panelConfig.systemMonitorShowTitle"
-            />
-          </div>
+            <SystemMonitor :allow-edit="canEdit" :show-title="true" />
+          </section>
 
-          <!-- 组纵向排列 -->
+          <!-- 分组纵向排列 -->
           <template v-for="(itemGroup, itemGroupIndex) in filterItems" :key="itemGroup.id || itemGroupIndex">
-          <div
-            v-if="activeGroupId === null || activeGroupId === itemGroup.id"
-            class="item-list mt-[50px]"
-            :class="itemGroup.sortStatus ? 'shadow-2xl border shadow-[0_0_30px_10px_rgba(0,0,0,0.3)]  p-[10px] rounded-2xl' : ''"
-            @mouseenter="handleSetHoverStatus(itemGroupIndex, true)"
-            @mouseleave="handleSetHoverStatus(itemGroupIndex, false)"
-          >
-            <!-- 分组标题 -->
-            <div class="text-white text-xl font-extrabold mb-[20px] ml-[10px] flex items-center">
-              <span class="group-title text-shadow">
-                {{ itemGroup.title }}
-              </span>
-              <div
-                v-if="canEdit"
-                class="group-buttons ml-2 delay-100 transition-opacity flex"
-                :class="itemGroup.hoverStatus ? 'opacity-100' : 'opacity-0'"
+            <section
+              v-if="activeGroupId === null || activeGroupId === itemGroup.id"
+              class="group"
+              :class="{ 'is-sorting': itemGroup.sortStatus }"
+              @mouseenter="handleSetHoverStatus(itemGroupIndex, true)"
+              @mouseleave="handleSetHoverStatus(itemGroupIndex, false)"
+            >
+              <div class="group-head">
+                <span class="bar" />
+                <span class="group-name">{{ itemGroup.title }}</span>
+                <span class="group-num">{{ (itemGroup.items || []).length }}</span>
+                <div
+                  v-if="canEdit"
+                  class="group-tools" :class="itemGroup.hoverStatus || itemGroup.sortStatus ? 'is-on' : ''"
+                >
+                  <button :title="t('common.add')" @click="handleAddItem(itemGroup.id)">
+                    <SvgIcon icon="typcn:plus" />
+                  </button>
+                  <button :title="t('common.sort')" @click="handleSetSortStatus(itemGroupIndex, !itemGroup.sortStatus)">
+                    <SvgIcon icon="ri:drag-drop-line" />
+                  </button>
+                  <NDropdown
+                    trigger="click" :options="visibilityOptions"
+                    @select="(v: any) => handleSetGroupVisible(itemGroup, Number(v))"
+                  >
+                    <button :title="`${t('common.groupVisible')}：${visibilityLabel(itemGroup.visible)}`">
+                      <SvgIcon :icon="visibilityIcon(itemGroup.visible)" />
+                    </button>
+                  </NDropdown>
+                </div>
+              </div>
+
+              <div v-if="itemGroup.items">
+              <VueDraggable
+                v-model="itemGroup.items" item-key="sort" :animation="300"
+                class="grid" :class="{ 'is-info': panelState.panelConfig.iconStyle === PanelPanelConfigStyleEnum.info }"
+                filter=".not-drag"
+                :disabled="!itemGroup.sortStatus"
               >
-                <span class="mr-2 cursor-pointer" :title="t('common.add')" @click="handleAddItem(itemGroup.id)">
-                  <SvgIcon class="text-white font-xl" icon="typcn:plus" />
-                </span>
-                <span class="mr-2 cursor-pointer " :title="t('common.sort')" @click="handleSetSortStatus(itemGroupIndex, !itemGroup.sortStatus)">
-                  <SvgIcon class="text-white font-xl" icon="ri:drag-drop-line" />
-                </span>
-                <!-- 分类可见性：公开 / 登录后可见 / 隐藏 -->
-                <NDropdown
-                  trigger="click" :options="visibilityOptions"
-                  @select="(v: any) => handleSetGroupVisible(itemGroup, Number(v))"
+                <div
+                  v-for="item, index in itemGroup.items" :key="index"
+                  class="site" :class="{ 'is-locked': item.masked, 'is-drag': itemGroup.sortStatus }"
+                  :title="item.masked ? t('panelHome.needIntranet') : item.description"
+                  @click="handleItemClick(itemGroupIndex, item)"
+                  @contextmenu="(e) => handleContextMenu(e, itemGroupIndex, item)"
                 >
-                  <span class="mr-2 cursor-pointer" :title="`${t('common.groupVisible')}：${visibilityLabel(itemGroup.visible)}`">
-                    <SvgIcon class="text-white font-xl" :icon="visibilityIcon(itemGroup.visible)" />
-                  </span>
-                </NDropdown>
-              </div>
-            </div>
-
-            <!-- 详情图标 -->
-            <div v-if="panelState.panelConfig.iconStyle === PanelPanelConfigStyleEnum.info">
-              <div v-if="itemGroup.items">
-                <VueDraggable
-                  v-model="itemGroup.items" item-key="sort" :animation="300"
-                  class="icon-info-box"
-                  filter=".not-drag"
-                  :disabled="!itemGroup.sortStatus"
-                >
-                  <div v-for="item, index in itemGroup.items" :key="index" :title="item.description" @contextmenu="(e) => handleContextMenu(e, itemGroupIndex, item)">
-                    <AppIcon
-                      :class="itemGroup.sortStatus ? 'cursor-move' : 'cursor-pointer'"
-                      :item-info="item"
-                      :icon-text-color="panelState.panelConfig.iconTextColor"
-                      :icon-text-info-hide-description="panelState.panelConfig.iconTextInfoHideDescription || false"
-                      :icon-text-icon-hide-title="panelState.panelConfig.iconTextIconHideTitle || false"
-                      :style="0"
-                      @click="handleItemClick(itemGroupIndex, item)"
+                  <div class="site-ico">
+                    <ItemIcon
+                      v-if="!item.masked" :item-icon="item.icon" :size="30"
+                      force-background="transparent"
                     />
+                    <span v-else class="site-lock">🔒</span>
                   </div>
+                  <div class="site-name">{{ item.title }}</div>
+                  <div v-if="panelState.panelConfig.iconStyle === PanelPanelConfigStyleEnum.info && !panelState.panelConfig.iconTextInfoHideDescription" class="site-desc">
+                    {{ item.description }}
+                  </div>
+                </div>
 
-                  <!-- 空分组的「添加」占位卡：只有登录后才有，访客看到的是空分组 -->
-                  <div v-if="itemGroup.items.length === 0 && canEdit" class="not-drag">
-                    <AppIcon
-                      :class="itemGroup.sortStatus ? 'cursor-move' : 'cursor-pointer'"
-                      :item-info="{ icon: { itemType: 3, text: 'subway:add' }, title: t('common.add'), url: '', openMethod: 0 }"
-                      :icon-text-color="panelState.panelConfig.iconTextColor"
-                      :icon-text-info-hide-description="panelState.panelConfig.iconTextInfoHideDescription || false"
-                      :icon-text-icon-hide-title="panelState.panelConfig.iconTextIconHideTitle || false"
-                      :style="0"
-                      @click="handleAddItem(itemGroup.id)"
-                    />
-                  </div>
-                </VueDraggable>
+                <!-- 空分组的「添加」占位卡：只有登录后才有，访客看到的是空分组 -->
+                <div v-if="itemGroup.items.length === 0 && canEdit" class="not-drag site is-add" @click="handleAddItem(itemGroup.id)">
+                  <div class="site-ico"><SvgIcon icon="typcn:plus" /></div>
+                  <div class="site-name">{{ t('common.add') }}</div>
+                </div>
+              </VueDraggable>
               </div>
-            </div>
 
-            <!-- APP图标宫型盒子 -->
-            <div v-if="panelState.panelConfig.iconStyle === PanelPanelConfigStyleEnum.icon">
-              <div v-if="itemGroup.items">
-                <VueDraggable
-                  v-model="itemGroup.items" item-key="sort" :animation="300"
-                  class="icon-small-box"
-
-                  filter=".not-drag"
-                  :disabled="!itemGroup.sortStatus"
-                >
-                  <div v-for="item, index in itemGroup.items" :key="index" :title="item.description" @contextmenu="(e) => handleContextMenu(e, itemGroupIndex, item)">
-                    <AppIcon
-                      :class="itemGroup.sortStatus ? 'cursor-move' : 'cursor-pointer'"
-                      :item-info="item"
-                      :icon-text-color="panelState.panelConfig.iconTextColor"
-                      :icon-text-info-hide-description="!panelState.panelConfig.iconTextInfoHideDescription"
-                      :icon-text-icon-hide-title="panelState.panelConfig.iconTextIconHideTitle || false"
-                      :style="1"
-                      @click="handleItemClick(itemGroupIndex, item)"
-                    />
-                  </div>
-
-                  <div v-if="itemGroup.items.length === 0 && canEdit" class="not-drag">
-                    <AppIcon
-                      class="cursor-pointer"
-                      :item-info="{ icon: { itemType: 3, text: 'subway:add' }, title: $t('common.add'), url: '', openMethod: 0 }"
-                      :icon-text-color="panelState.panelConfig.iconTextColor"
-                      :icon-text-info-hide-description="!panelState.panelConfig.iconTextInfoHideDescription"
-                      :icon-text-icon-hide-title="panelState.panelConfig.iconTextIconHideTitle || false"
-                      :style="1"
-                      @click="handleAddItem(itemGroup.id)"
-                    />
-                  </div>
-                </vuedraggable>
+              <div v-if="itemGroup.sortStatus" class="sort-bar">
+                <button class="btn-save" @click="handleSaveSort(itemGroup)">
+                  <SvgIcon icon="material-symbols:save" />
+                  {{ t('common.saveSort') }}
+                </button>
               </div>
-            </div>
-
-            <!-- 编辑栏 -->
-            <div v-if="itemGroup.sortStatus" class="flex mt-[10px]">
-              <div>
-                <NButton color="#2a2a2a6b" @click="handleSaveSort(itemGroup)">
-                  <template #icon>
-                    <SvgIcon class="text-white font-xl" icon="material-symbols:save" />
-                  </template>
-                  <div>
-                    {{ $t('common.saveSort') }}
-                  </div>
-                </NButton>
-              </div>
-            </div>
-          </div>
+            </section>
           </template>
+
+          <div v-if="filterItems.length === 0" class="empty">
+            {{ t('common.noData') }}
           </div>
         </div>
-        <div class="mt-5 footer" v-html="panelState.panelConfig.footerHtml" />
+
+        <div class="foot" v-html="panelState.panelConfig.footerHtml" />
       </div>
-    </div>
+    </main>
 
     <!-- 右键菜单 -->
     <NDropdown
@@ -644,59 +622,7 @@ function handleAddItem(itemIconGroupId?: number) {
       :options="getDropdownMenuOptions()" :show="dropdownShow" :on-clickoutside="onClickoutside" @select="handleRightMenuSelect"
     />
 
-    <!-- 悬浮按钮 -->
-    <div class="fixed-element shadow-[0_0_10px_2px_rgba(0,0,0,0.2)]">
-      <NButtonGroup vertical>
-        <!-- 网络模式切换按钮组 -->
-        <NButton
-          v-if="panelState.networkMode === PanelStateNetworkModeEnum.lan && panelState.panelConfig.netModeChangeButtonShow" color="#2a2a2a6b"
-          :title="t('panelHome.changeToWanModel')" @click="handleChangeNetwork(PanelStateNetworkModeEnum.wan)"
-        >
-          <template #icon>
-            <SvgIcon class="text-white font-xl" icon="material-symbols:lan-outline-rounded" />
-          </template>
-        </NButton>
-
-        <NButton
-          v-if="panelState.networkMode === PanelStateNetworkModeEnum.wan && panelState.panelConfig.netModeChangeButtonShow" color="#2a2a2a6b"
-          :title="t('panelHome.changeToLanModel')" @click="handleChangeNetwork(PanelStateNetworkModeEnum.lan)"
-        >
-          <template #icon>
-            <SvgIcon class="text-white font-xl" icon="mdi:wan" />
-          </template>
-        </NButton>
-
-        <NButton v-if="canEdit" color="#2a2a2a6b" @click="settingModalShow = !settingModalShow">
-          <template #icon>
-            <SvgIcon class="text-white font-xl" icon="majesticons-applications" />
-          </template>
-        </NButton>
-
-        <NButton v-if="authStore.visitMode === VisitMode.VISIT_MODE_PUBLIC" color="#2a2a2a6b" :title="$t('panelHome.goToLogin')" @click="router.push('/login')">
-          <template #icon>
-            <SvgIcon class="text-white font-xl" icon="material-symbols:account-circle" />
-          </template>
-        </NButton>
-      </NButtonGroup>
-
-      <AppStarter v-model:visible="settingModalShow" />
-      <!-- <Setting v-model:visible="settingModalShow" /> -->
-    </div>
-
-    <NBackTop
-      :listen-to="() => scrollContainerRef"
-      :right="10"
-      :bottom="10"
-      style="background-color:transparent;border: none;box-shadow: none;"
-    >
-      <div class="shadow-[0_0_10px_2px_rgba(0,0,0,0.2)]">
-        <NButton color="#2a2a2a6b">
-          <template #icon>
-            <SvgIcon class="text-white font-xl" icon="icon-park-outline:to-top" />
-          </template>
-        </NButton>
-      </div>
-    </NBackTop>
+    <AppStarter v-model:visible="settingModalShow" />
 
     <EditItem v-model:visible="editItemInfoShow" :item-info="editItemInfoData" :item-group-id="currentAddItenIconGroupId" @done="handleEditSuccess" />
 
@@ -734,135 +660,623 @@ function handleAddItem(itemIconGroupId?: number) {
 body,
 html {
   overflow: hidden;
-  background-color: rgb(54, 54, 54);
+  background-color: #090D16;
 }
 </style>
 
 <style scoped>
-.mask {
-  position: absolute;
-  top: 0;
-  left: 0;
+/* ══ 面板首页 = nav 的视觉语言 ══════════════════════════════════
+   左边固定分类栏、右边顶部搜索 + 分组网格，尺寸和颜色全部照
+   nav/static/index.html 抄，两边看起来才是同一个产品。 */
+
+.nav-shell {
+  --bg: #090D16;
+  --side: rgba(13, 18, 30, 0.92);
+  --panel: #121927;
+  --panel-2: #182033;
+  --panel-3: #1E2740;
+  --line: rgba(255, 255, 255, 0.075);
+  --line-strong: rgba(255, 255, 255, 0.14);
+  --text: #E9EDF7;
+  --text-2: #99A3BE;
+  --text-3: #65708D;
+  --brand: #5B6CFF;
+  --brand-hi: #7C8AFF;
+  --accent: #22D3C5;
+  --r: 13px;
+  --r-sm: 9px;
+  --r-lg: 18px;
+  --side-w: 236px;
+  --shadow-1: 0 2px 10px rgba(3, 6, 16, 0.45);
+  --shadow-2: 0 14px 34px rgba(3, 6, 16, 0.55);
+  --shadow-brand: 0 12px 28px rgba(91, 108, 255, 0.35);
+
+  position: relative;
+  display: flex;
   width: 100%;
   height: 100%;
-}
-
-.sun-main {
+  color: var(--text);
+  font-family: "Inter", "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei",
+    -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 14px;
   user-select: none;
+  background:
+    radial-gradient(900px 520px at 8% -12%, rgba(91, 108, 255, 0.30), transparent 62%),
+    radial-gradient(760px 480px at 102% 108%, rgba(34, 211, 197, 0.18), transparent 62%),
+    var(--bg);
 }
 
-.cover {
+/* 壁纸层（面板老配置） */
+.wallpaper {
   position: absolute;
-  width: 100%;
-  height: 100%;
+  inset: 0;
   overflow: hidden;
-  /* background: url(@/assets/start_sky.jpg) no-repeat; */
-
   transform: scale(1.05);
+  z-index: 0;
 }
 
-.text-shadow {
-  text-shadow: 2px 2px 50px rgb(0, 0, 0);
+.wallpaper-mask {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
 }
 
-.app-icon-text-shadow {
-  text-shadow: 2px 2px 5px rgb(0, 0, 0);
-}
-
-.fixed-element {
-  position: fixed;
-  /* 将元素固定在屏幕上 */
-  right: 10px;
-  /* 距离屏幕顶部的距离 */
-  bottom: 50px;
-  /* 距离屏幕左侧的距离 */
-}
-
-.icon-info-box {
-  width: 100%;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-  gap: 14px;
-
-}
-
-.icon-small-box {
-  width: 100%;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
-  gap: 14px;
-
-}
-
-@media (max-width: 500px) {
-  .icon-info-box{
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  }
-}
-
-/* 左侧分类栏 */
-.cat-rail {
-  width: 148px;
-  flex: 0 0 148px;
-  position: sticky;
-  top: 8px;
+/* ── 左侧分类栏 ─────────────────────────────────────── */
+.side {
+  position: relative;
+  z-index: 3;
+  width: var(--side-w);
+  flex: 0 0 var(--side-w);
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  max-height: calc(100vh - 120px);
-  overflow-y: auto;
-  padding: 6px 4px;
-  border-radius: 14px;
-  background: rgba(0, 0, 0, 0.18);
-  backdrop-filter: blur(6px);
-  margin-top: 50px;
+  background: var(--side);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  border-right: 1px solid var(--line);
 }
 
-.cat-item {
+.brand {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  width: 100%;
-  padding: 6px 10px;
-  border: 0;
-  border-radius: 9px;
-  background: transparent;
-  color: rgba(255, 255, 255, 0.78);
-  font-size: 13px;
-  line-height: 1.6;
-  text-align: left;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  gap: 10px;
+  padding: 20px 18px 14px;
+  flex-shrink: 0;
 }
 
-.cat-item:hover {
-  background: rgba(255, 255, 255, 0.12);
+.brand-mark {
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  background: linear-gradient(135deg, var(--brand), var(--accent));
+  display: grid;
+  place-items: center;
   color: #fff;
+  font-size: 16px;
+  font-weight: 800;
+  box-shadow: 0 6px 16px rgba(91, 108, 255, 0.4);
+  flex-shrink: 0;
 }
 
-.cat-item.is-on {
-  background: rgba(255, 255, 255, 0.22);
-  color: #fff;
-  font-weight: 600;
-}
-
-.cat-name {
+.brand-name {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  line-height: 1.2;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.cat-count {
+.brand-sub {
+  margin-top: 3px;
+  font-size: 10.5px;
+  letter-spacing: 0.6px;
+  color: var(--text-3);
+  text-transform: uppercase;
+}
+
+.cats {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-2);
+  font-size: 13px;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.cat:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+}
+
+.cat.is-on {
+  background: rgba(91, 108, 255, 0.16);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.cat-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cat-num {
   flex: 0 0 auto;
   font-size: 11px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.cat.is-on .cat-num {
+  color: var(--brand-hi);
+}
+
+.side-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px 14px;
+  border-top: 1px solid var(--line);
+  flex-shrink: 0;
+}
+
+.stat {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: 1;
+  min-width: 0;
+  font-size: 11.5px;
+  color: var(--text-3);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+  flex-shrink: 0;
+}
+
+/* ── 主区 ──────────────────────────────────────────── */
+.main {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 22px;
+  flex-shrink: 0;
+}
+
+.search-wrap {
+  flex: 1;
+  max-width: 560px;
+  min-width: 0;
+}
+
+.top-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.icon-btn {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text-2);
+  font-size: 17px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.icon-btn:hover {
+  background: var(--panel-2);
+  color: var(--text);
+  border-color: var(--line-strong);
+}
+
+.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.content {
+  padding: 4px 22px 8px;
+}
+
+/* ── 分组 ──────────────────────────────────────────── */
+.group {
+  position: relative;
+  margin-bottom: 26px;
+}
+
+.group-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 13px;
+}
+
+.bar {
+  width: 3px;
+  height: 15px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, var(--brand), var(--accent));
+  flex-shrink: 0;
+}
+
+.group-name {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.group-num {
+  font-size: 11.5px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.group-tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.group-tools.is-on {
+  opacity: 1;
+}
+
+.group-tools button {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.group-tools button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+}
+
+/* 排序中的分组描个边，跟拖拽状态对应 */
+.group.is-sorting {
+  padding: 10px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-lg);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+/* ── 站点网格 ──────────────────────────────────────── */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 12px;
+}
+
+.site {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+  padding: 16px 8px 12px;
+  border-radius: var(--r);
+  border: 1px solid transparent;
+  background: var(--panel);
+  box-shadow: var(--shadow-1);
+  cursor: pointer;
+  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.18s, border-color 0.18s, background 0.18s;
+  overflow: hidden;
+}
+
+.site:hover {
+  transform: translateY(-4px);
+  background: var(--panel-2);
+  border-color: rgba(91, 108, 255, 0.38);
+  box-shadow: var(--shadow-brand);
+}
+
+.site.is-drag {
+  cursor: move;
+}
+
+.site-ico {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: transparent;
+  flex-shrink: 0;
+  color: var(--text-3);
+  font-size: 20px;
+}
+
+.site-name {
+  max-width: 100%;
+  font-size: 12.5px;
+  font-weight: 500;
+  text-align: center;
+  line-height: 1.35;
+  color: var(--text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  word-break: break-word;
+}
+
+.site:hover .site-name {
+  color: var(--text);
+}
+
+/* 内网地址被收起来的卡 */
+.site.is-locked {
+  cursor: default;
+  border: 1px dashed var(--line-strong);
+  box-shadow: none;
+  background: var(--panel);
+}
+
+.site.is-locked:hover {
+  transform: none;
+  border-color: var(--line-strong);
+  box-shadow: none;
+  background: var(--panel);
+}
+
+.site-lock {
+  font-size: 18px;
   opacity: 0.65;
 }
 
-/* 窄屏不占横向空间，横过来当一排标签 */
-@media (max-width: 768px) {
-  .cat-rail {
+.site.is-add {
+  border: 1px dashed var(--line-strong);
+  background: transparent;
+  box-shadow: none;
+}
+
+.site.is-add:hover {
+  border-color: var(--brand);
+  background: rgba(91, 108, 255, 0.08);
+}
+
+/* 详情风格：宽卡，图标在左、标题描述在右 */
+.grid.is-info {
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+}
+
+.grid.is-info .site {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  text-align: left;
+}
+
+.grid.is-info .site-name {
+  text-align: left;
+  -webkit-line-clamp: 1;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.site-desc {
+  font-size: 11.5px;
+  color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+/* 系统状态：组件内部自带 mt-50px 和白色标题，压成跟分组一致 */
+.group.is-monitor :deep(.system-monitor > div) {
+  margin-top: 0 !important;
+}
+
+.group.is-monitor :deep(.system-monitor-header) {
+  margin-bottom: 13px !important;
+  margin-left: 0 !important;
+  font-size: 15px !important;
+  letter-spacing: 0.2px;
+}
+
+.group.is-monitor :deep(.system-monitor-header .text-shadow) {
+  text-shadow: none;
+}
+
+/* 保存排序 */
+.sort-bar {
+  display: flex;
+  margin-top: 12px;
+}
+
+.btn-save {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: var(--brand);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.btn-save:hover {
+  background: var(--brand-hi);
+}
+
+.empty {
+  padding: 60px 0;
+  text-align: center;
+  color: var(--text-3);
+  font-size: 13px;
+}
+
+.foot {
+  padding: 10px 22px 26px;
+  font-size: 12px;
+  color: var(--text-3);
+  text-align: center;
+}
+
+.foot :deep(a) {
+  color: var(--text-3);
+}
+
+/* 搜索框照 nav 的样子收一下 */
+.search-wrap :deep(.search-container) {
+  height: 44px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line-strong);
+  background: var(--panel) !important;
+  box-shadow: none;
+  transition: border-color 0.18s, box-shadow 0.18s;
+}
+
+.search-wrap :deep(.search-container:hover),
+.search-wrap :deep(.search-container.focused) {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px rgba(91, 108, 255, 0.18);
+}
+
+.search-wrap :deep(input) {
+  height: 42px;
+  font-size: 13.5px;
+  color: var(--text);
+}
+
+.search-wrap :deep(input::placeholder) {
+  color: var(--text-3);
+}
+
+.search-wrap :deep(.search-box-btn-engine),
+.search-wrap :deep(.search-box-btn-search),
+.search-wrap :deep(.search-box-btn-clear) {
+  color: var(--text-3);
+}
+
+/* ── 窄屏：侧栏横过来当一排标签 ────────────────────── */
+@media (max-width: 900px) {
+  .nav-shell {
+    flex-direction: column;
+  }
+
+  .side {
+    width: 100%;
+    flex: 0 0 auto;
+    flex-direction: row;
+    align-items: center;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .brand {
+    padding: 10px 12px;
+  }
+
+  .brand-text {
     display: none;
+  }
+
+  .cats {
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 8px;
+    gap: 4px;
+  }
+
+  .cat {
+    width: auto;
+    white-space: nowrap;
+    padding: 6px 10px;
+  }
+
+  .cat-num {
+    display: none;
+  }
+
+  .side-foot {
+    border-top: 0;
+    padding: 8px 12px;
+  }
+
+  .stat {
+    display: none;
+  }
+
+  .top {
+    padding: 10px 14px;
+  }
+
+  .content {
+    padding: 4px 14px 8px;
+  }
+
+  .grid {
+    grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+    gap: 10px;
   }
 }
 </style>
