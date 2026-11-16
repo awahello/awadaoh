@@ -229,14 +229,25 @@ function handleItemClick(itemGroupIndex: number, item: Panel.ItemInfo) {
     return
   }
 
-  // 当前不在内网、地址又被收起来了：明确告诉它要什么环境，别点出一个死页
+  // 地址被收起来 = 服务端判定你是访客（内网地址不下发）。
+  // 这时候提示「需要内网环境」是误导 —— 真正缺的是登录。
   if (item.masked) {
-    ms.warning(t('panelHome.needIntranet'))
+    dialog.warning({
+      title: '这是内网地址',
+      content: '内网地址只对登录用户下发。登录之后就能看到真实地址，'
+        + '再用右上角的「内网/公网」开关切换走哪条线。',
+      positiveText: t('panelHome.goToLogin'),
+      negativeText: t('common.cancel'),
+      onPositiveClick: () => router.push('/login'),
+    })
     return
   }
 
-  // 登录用户能看到内网地址，但人可能在外网：先问一句，别让他以为站点挂了
-  if (item.private && !clientIntranet.value) {
+  // 登录用户看得到真实地址，但「在不在内网」服务端判断不可靠：
+  // 走 Cloudflare / 反代时后端看到的是边缘节点的公网 IP，永远判成外网。
+  // 所以只在外网模式下提醒一句；已经手动切到内网模式就说明用户自己知道连了内网，
+  // 直接打开，别再拿一个假警报挡路。
+  if (item.private && !clientIntranet.value && panelState.networkMode === PanelStateNetworkModeEnum.wan) {
     dialog.warning({
       title: t('common.warning'),
       content: t('panelHome.needIntranetConfirm'),
