@@ -60,6 +60,15 @@ echo "==> 清理备份文件"
 rm -f "$OUT/awadaoh.orig"
 find "$OUT/web" -name "*.bak" -delete 2>/dev/null || true
 
+# 前端与架构无关，Dockerfile.pro 读的是 pro/web，所以按架构产出后再同步一份公共的，
+# 否则 docker build 会在 COPY ./pro/web 这一步挂掉（CI 里表现为 du: pro/web: No such file）。
+if [ "$(cd "$OUT" && pwd)" != "$ROOT/pro/web" ]; then
+  mkdir -p "$ROOT/pro"
+  rm -rf "$ROOT/pro/web"
+  cp -r "$OUT/web" "$ROOT/pro/web"
+  echo "==> 公共前端: $ROOT/pro/web"
+fi
+
 echo "==> 复核"
 "$PY" "$ROOT/tools/patch-pro.py" "$OUT/awadaoh" --check
 "$PY" "$ROOT/tools/web-inject.py" "$OUT/web" --check
