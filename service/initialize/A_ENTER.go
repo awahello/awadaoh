@@ -128,6 +128,9 @@ func DatabaseConnect() {
 	// 老库里的 admin@sun.cc 改成 admin，否则照文档登录永远是「账号或密码错误」
 	database.MigrateLegacyAdminUsername(global.Db)
 
+	// AWADAOH_RESET_ADMIN=1 时把密码打回出厂值（先重置，再打日志，日志里就是重置后的状态）
+	database.ResetAdminByEnv(global.Db)
+
 	// 把管理员账号打到启动日志里，省得用户对着「用户名或密码错误」猜账号
 	database.LogAdminAccounts(global.Db)
 }
@@ -159,27 +162,16 @@ func CommandRun() {
 		global.Config = config
 
 		DatabaseConnect()
-		userInfo := models.User{}
-		if err := global.Db.Where("role=?", 1).Order("id").First(&userInfo).Error; err != nil {
-			fmt.Println("ERROR", err.Error())
-			os.Exit(0) // 务必退出
-		}
 
-		newPassword := "12345678"
-
-		updateInfo := models.User{
-			Password: cmn.PasswordEncryption(newPassword),
-			Token:    "",
-		}
-		// 重置第一个管理员的密码
-		if err := global.Db.Select("Password", "Token").Where("id=?", userInfo.ID).Updates(&updateInfo).Error; err != nil {
+		userInfo, err := database.ResetAdminPassword(global.Db)
+		if err != nil {
 			fmt.Println("ERROR", err.Error())
 			os.Exit(0) // 务必退出
 		}
 
 		fmt.Println("The password has been successfully reset. Here is the account information")
 		fmt.Println("Username ", userInfo.Username)
-		fmt.Println("Password ", newPassword)
+		fmt.Println("Password ", database.DefaultAdminPassword)
 		os.Exit(0) // 务必退出
 	} else {
 		return

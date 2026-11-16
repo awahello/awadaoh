@@ -57,6 +57,14 @@ func (l LoginApi) Login(c *gin.Context) {
 	if info, err = mUser.GetUserInfoByUsernameAndPassword(param.Username, cmn.PasswordEncryption(param.Password)); err != nil {
 		// 未找到记录 账号或密码错误
 		if err == gorm.ErrRecordNotFound {
+			// 给前端永远是同一句 1003（不告诉外人账号存不存在），
+			// 但服务端日志要分得清：账号不存在 / 账号在但密码不对。
+			// 不然用户只能对着「用户名或密码错误」猜，猜到最后只能来问。
+			if u, e2 := mUser.GetUserInfoByUsername(param.Username); e2 == nil && u.ID != 0 {
+				global.Logger.Warnf("登录失败：账号存在但密码不匹配 username=%s id=%d", param.Username, u.ID)
+			} else {
+				global.Logger.Warnf("登录失败：账号不存在 username=%s", param.Username)
+			}
 			apiReturn.ErrorByCode(c, 1003)
 			return
 		} else {

@@ -23,6 +23,10 @@ const (
 	SQLITE = "sqlite"
 )
 
+// 出厂默认密码。创建管理员、重置密码、启动日志里那句「密码是不是出厂值」，
+// 全都读这一处 —— 以前这三处各写一份字符串，改一处漏两处就是「默认密码不对」。
+const DefaultAdminPassword = "12345678"
+
 type DbClient interface {
 	Connect() (db *gorm.DB, err error)
 }
@@ -143,7 +147,7 @@ func NotFoundAndCreateUser(db *gorm.DB) error {
 		fUser.Name = username
 		fUser.Status = 1
 		fUser.Role = 1
-		fUser.Password = cmn.PasswordEncryption("12345678")
+		fUser.Password = cmn.PasswordEncryption(DefaultAdminPassword)
 
 		if errCreate := db.Create(&fUser).Error; errCreate != nil {
 			return errCreate
@@ -181,6 +185,46 @@ func MigrateLegacyAdminUsername(db *gorm.DB) {
 	log.Printf("老库管理员用户名 %s -> %s（id=%d）", legacy, fixed, old.ID)
 }
 
+// ResetAdminPassword 把第一个管理员的密码打回出厂默认值，并清掉 token。
+// 用 map 而不是 struct + Select：struct 更新时 GORM 会跳过零值字段，
+// token 想置空还得额外 Select 一次，容易漏。map 没有这个坑。
+func ResetAdminPassword(db *gorm.DB) (models.User, error) {
+	var u models.User
+	if err := db.Where("role = ?", 1).Order("id asc").First(&u).Error; err != nil {
+		return u, err
+	}
+	err := db.Model(&models.User{}).Where("id = ?", u.ID).
+		Updates(map[string]interface{}{
+			"password": cmn.PasswordEncryption(DefaultAdminPassword),
+			"token":    "",
+		}).Error
+	return u, err
+}
+
+// ResetAdminByEnv 给「进不去后台」留一条不用敲命令的出路。
+//
+// 用法：AWADAOH_RESET_ADMIN=1 重启容器，第一个管理员的密码就回到出厂默认值，
+// 并把用户名密码打在日志里。对 NAS 用户来说，改一行 compose 比 docker exec 里
+// 拼参数现实得多；而 -password-reset 那条路仍然留着。
+func ResetAdminByEnv(db *gorm.DB) {
+	v := strings.ToLower(strings.TrimSpace(os.Getenv("AWADAOH_RESET_ADMIN")))
+	if v != "1" && v != "true" && v != "yes" && v != "on" {
+		return
+	}
+	u, err := ResetAdminPassword(db)
+	if err != nil {
+		log.Println("AWADAOH_RESET_ADMIN 重置失败:", err)
+		return
+	}
+	log.Println("=============== 管理员密码已重置 ===============")
+	log.Printf("  用户名  %s", u.Username)
+	log.Printf("  密  码  %s", DefaultAdminPassword)
+	log.Println("  进去以后到「设置 → 账号」改掉它")
+	log.Println("  !! 记得把 AWADAOH_RESET_ADMIN 从 compose 里删掉，")
+	log.Println("     否则每次重启都会再重置一次")
+	log.Println("==============================================")
+}
+
 // 启动时把管理员账号打出来。
 // 为什么需要：上游默认用户名是 admin@sun.cc，我们改成了 admin；老库被上面那个函数
 // 改名之后密码还是上游那一套，用户照文档敲默认密码只会得到「用户名或密码错误」，
@@ -191,10 +235,17 @@ func LogAdminAccounts(db *gorm.DB) {
 		return
 	}
 
-	names := make([]string, 0, len(users))
+	def := cmn.PasswordEncryption(DefaultAdminPassword)
 	for _, u := range users {
-		names = append(names, u.Username)
+		// 这一句直接回答「我该敲什么密码」：出厂值就是出厂值，
+		// 不是的话就别猜了，重置。
+		state := "密码不是出厂默认值"
+		if u.Password == def {
+			state = "密码 = 出厂默认值"
+		}
+		log.Printf("管理员 id=%d 用户名=%s 状态=%d %s", u.ID, u.Username, u.Status, state)
 	}
-	log.Printf("管理员账号: %s", strings.Join(names, ", "))
-	log.Println("忘记密码就跑: docker exec -it <容器名> /app/awadaoh -password-reset（把第一个管理员的密码重置成默认值，并打印用户名）")
+	log.Println("登录提示：用户名打上面的「用户名」，密码是出厂默认值或你自己改过的那个")
+	log.Println("进不去就跑: docker exec -it <容器名> /app/awadaoh -password-reset")
+	log.Println("           或设 AWADAOH_RESET_ADMIN=1 重启容器（会自动重置并打印账号密码）")
 }
