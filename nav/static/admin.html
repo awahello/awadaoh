@@ -1060,12 +1060,10 @@
 
 		function out(h) { var el = $('#s-out'); if (el) el.innerHTML = h; }
 
-		// 拉取真实状态
-		fetch('/api/sync', { cache: 'no-store' })
-			.then(function (r) { return r.json(); })
+		// 拉取真实状态（走 api()，带上 token，否则 /api/sync 直接 401）
+		api('/api/sync')
 			.then(function (d) {
-				if (!d.ok) return;
-				var s = d.sync;
+				var s = d.sync || {};
 				var st = $('#s-state');
 				if (!st) return;
 				var rows = [
@@ -1078,7 +1076,10 @@
 				st.innerHTML = rows.map(function (r) {
 					return '<tr><td>' + r[0] + '</td><td>' + r[1] + '</td></tr>';
 				}).join('');
-			}).catch(function () {});
+			}).catch(function (e) {
+				var st = $('#s-state');
+				if (st) st.innerHTML = '<tr><td>状态</td><td>' + esc(e.message || '读取失败') + '</td></tr>';
+			});
 	}
 
 	function upload(f) {

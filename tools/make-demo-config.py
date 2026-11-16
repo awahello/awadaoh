@@ -31,7 +31,7 @@ DEMO = [
     ("跨境", "🌏", [("Stripe", "dashboard.stripe.com"), ("PayPal", "business.paypal.com"), ("汇率", "xe.com")]),
     ("DIY", "🔧", [("树莓派", "raspberrypi.com"), ("ESPHome", "esphome.io"), ("Home Assistant", "home-assistant.io"),
                    ("3D 打印", "printables.com")]),
-    ("未知404", "❓", [("书签残留", "example.com"), ("待整理", "example.org")]),
+    ("建站与博客", "✍️", [("WordPress", "wordpress.org"), ("Halo", "halo.run"), ("Hexo", "hexo.io")]),
     ("杂项", "🗂", [("待办", "todoist.com"), ("笔记", "notion.so"), ("密码", "bitwarden.com")]),
 ]
 
