@@ -992,9 +992,14 @@ html {
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
+  /* 竖向 flex：内容不够高时，页脚也贴着屏幕底部，
+     而不是「Powered By」孤零零挂在中间 */
+  display: flex;
+  flex-direction: column;
 }
 
 .content {
+  flex: 1 0 auto;
   padding: 4px 22px 8px;
 }
 
@@ -1255,7 +1260,8 @@ html {
 }
 
 .foot {
-  padding: 10px 22px 26px;
+  flex: 0 0 auto;
+  padding: 10px 22px 22px;
   font-size: 12px;
   color: var(--text-3);
   text-align: center;
