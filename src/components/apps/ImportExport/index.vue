@@ -129,6 +129,19 @@ async function importIcons(): Promise<string | null> {
   }
 }
 
+// 按域名取 favicon。书签 HTML / Chrome JSON 里都没有图标信息，
+// 但地址里有域名 —— 交给 favicon 服务按域名取，比首字母方块好看得多，
+// 也不用把 176 张图都下到服务器上。
+function faviconOf(u: string): string {
+  try {
+    const host = new URL(u).hostname
+    return host ? `https://favicon.im/${host}?larger=true` : ''
+  }
+  catch {
+    return ''
+  }
+}
+
 // 浏览器书签 HTML → 分组 + 站点。
 // 走的是同一套接口（先建组拿 id，再批量加站点），只是数据源从 JSON 换成了 HTML。
 async function importHtmlGroups(): Promise<string | null> {
@@ -152,7 +165,7 @@ async function importHtmlGroups(): Promise<string | null> {
       let addIcons: Panel.ItemInfo[] = []
       for (let i = 0; i < g.children.length; i++) {
         const s = g.children[i]
-        const first = (s.title || s.url || '?').trim().charAt(0).toUpperCase() || '?'
+        const fav = faviconOf(s.url)
         addIcons.push({
           title: s.title,
           sort: i + 1,
@@ -160,8 +173,10 @@ async function importHtmlGroups(): Promise<string | null> {
           lanUrl: '',
           description: s.description,
           openMethod: 2, // 新窗口打开，和浏览器书签的习惯一致
-          // 书签 HTML 里没有图标信息，先给个首字母方块，后台可以再改
-          icon: { itemType: 1, text: first },
+          // 有域名就按域名取 favicon；取不到的（file:// 之类）才退回首字母方块
+          icon: fav
+            ? { itemType: 2, src: fav, backgroundColor: '#2a2a2a6b' }
+            : { itemType: 1, text: (s.title || '?').trim().charAt(0).toUpperCase() || '?' },
           itemIconGroupId: groupId,
         })
 

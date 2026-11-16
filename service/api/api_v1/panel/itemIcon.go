@@ -237,6 +237,24 @@ func (a *ItemIcon) SaveSort(c *gin.Context) {
 	apiReturn.Success(c)
 }
 
+// Click 记一次点击。访客也会调，所以挂的是公开模式那组路由。
+// 只加不减，失败也不报错（前端是 fire-and-forget，别为了统计挡住跳转）。
+func (a *ItemIcon) Click(c *gin.Context) {
+	req := struct {
+		Id uint `json:"id"`
+	}{}
+	if err := c.ShouldBindBodyWith(&req, binding.JSON); err != nil || req.Id == 0 {
+		apiReturn.ErrorParamFomat(c, "id 不能为空")
+		return
+	}
+	if err := global.Db.Model(&models.ItemIcon{}).Where("id = ?", req.Id).
+		UpdateColumn("click_count", gorm.Expr("click_count + 1")).Error; err != nil {
+		apiReturn.ErrorDatabase(c, err.Error())
+		return
+	}
+	apiReturn.Success(c)
+}
+
 // 支持获取并直接下载对方网站图标到服务器
 func (a *ItemIcon) GetSiteFavicon(c *gin.Context) {
 	userInfo, _ := base.GetCurrentUserInfo(c)

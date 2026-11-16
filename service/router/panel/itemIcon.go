@@ -22,6 +22,8 @@ func InitItemIcon(router *gin.RouterGroup) {
 	rPublic := router.Group("", middleware.PublicModeInterceptor)
 	{
 		rPublic.POST("/panel/itemIcon/getListByGroupId", itemIcon.GetListByGroupId)
+		// 点一次 +1，用来「按使用频率排序」。访客也会调，所以放公开这组
+		rPublic.POST("/panel/itemIcon/click", itemIcon.Click)
 		// 客户端自己在不在内网（首页据此决定内网地址能不能直接连）
 		rPublic.GET("/panel/env", itemIcon.GetClientEnv)
 		rPublic.POST("/panel/env", itemIcon.GetClientEnv)

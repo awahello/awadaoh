@@ -5,7 +5,7 @@ import { nextTick, onMounted, ref, computed } from 'vue'
 import { AppStarter, EditItem } from './components'
 import { SearchBox, SystemMonitor } from '@/components/deskModule'
 import { ItemIcon, SvgIcon } from '@/components/common'
-import { deletes, getClientEnv, getListByGroupId, saveSort } from '@/api/panel/itemIcon'
+import { click as reportClick, deletes, getClientEnv, getListByGroupId, saveSort } from '@/api/panel/itemIcon'
 import { getFrontLock, unlockFrontLock } from '@/api/panel/frontLock'
 import { edit as editGroup, getList as getGroupList } from '@/api/panel/itemIconGroup'
 
@@ -109,6 +109,32 @@ async function doUnlock() {
 const activeGroupId = ref<number | null>(null)
 const totalItemCount = computed(() => filterItems.value.reduce((n, g) => n + (g.items?.length || 0), 0))
 
+// 按使用频率排序：点得多的排前面。
+// 存在浏览器里而不是账号里 —— 访客也能自己选，不需要登录。
+const sortByClicks = ref(false)
+try { sortByClicks.value = localStorage.getItem('awadaoh-sort-clicks') === '1' } catch (e) {}
+
+function applyClickSort() {
+  if (!sortByClicks.value)
+    return
+  // 直接改数组顺序（不是渲染时临时排）：拖拽排序用的是同一个数组，
+  // 用计算属性复制一份会让 v-model 拖拽写回到副本上，排序功能就废了。
+  items.value.forEach((g) => {
+    if (!g.items || g.items.length < 2)
+      return
+    g.items.sort((a, b) => (b.clickCount || 0) - (a.clickCount || 0))
+  })
+}
+
+function toggleClickSort() {
+  sortByClicks.value = !sortByClicks.value
+  try { localStorage.setItem('awadaoh-sort-clicks', sortByClicks.value ? '1' : '0') } catch (e) {}
+  if (sortByClicks.value)
+    applyClickSort()
+  else
+    getList()
+}
+
 // 访问者自己是不是在内网：内网 → 内网地址直接连；外网 → 内网卡提示需要内网环境
 const clientIntranet = ref(false)
 async function detectClientEnv() {
@@ -190,6 +216,14 @@ function jumpTo(item: Panel.ItemInfo) {
 }
 
 function handleItemClick(itemGroupIndex: number, item: Panel.ItemInfo) {
+  // 记一次点击（按使用频率排序用）。不 await：统计不该挡住跳转。
+  if (item.id) {
+    item.clickCount = (item.clickCount || 0) + 1
+    reportClick(item.id).catch(() => {})
+    if (sortByClicks.value)
+      applyClickSort()
+  }
+
   if (items.value[itemGroupIndex] && items.value[itemGroupIndex].sortStatus) {
     handleEditItem(item)
     return
@@ -235,6 +269,7 @@ function getList() {
       if (element.id)
         updateItemIconGroupByNet(i, element.id)
     }
+    applyClickSort()
     filterItems.value = items.value
     // console.log(items)
   }).catch(() => {
@@ -559,6 +594,13 @@ function handleAddItem(itemIconGroupId?: number) {
             @click="handleChangeNetwork(PanelStateNetworkModeEnum.lan)"
           >
             <SvgIcon icon="mdi:wan" />
+          </button>
+          <button
+            class="icon-btn" :class="{ 'is-on': sortByClicks }"
+            :title="sortByClicks ? '当前按使用频率排序，点击切回默认顺序' : '按使用频率排序（点得多的排前面）'"
+            @click="toggleClickSort"
+          >
+            <SvgIcon icon="mdi:sort-variant" />
           </button>
           <button v-if="canEdit" class="icon-btn" :title="t('common.style')" @click="settingModalShow = true">
             <SvgIcon icon="majesticons-applications" />
@@ -985,6 +1027,12 @@ html {
   background: var(--panel-2);
   color: var(--text);
   border-color: var(--line-strong);
+}
+
+.icon-btn.is-on {
+  background: rgba(91, 108, 255, 0.16);
+  color: var(--brand-hi);
+  border-color: rgba(91, 108, 255, 0.45);
 }
 
 .scroll {

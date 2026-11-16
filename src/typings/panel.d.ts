@@ -17,6 +17,8 @@ declare namespace Panel {
         private?: boolean
         masked?: boolean
         needsIntranet?: boolean
+        // 点击次数，用于「按使用频率排序」
+        clickCount?: number
     }
 
     // 谷歌书签同步的配置（后端 system_setting 里的 panel_sync）

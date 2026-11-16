@@ -61,3 +61,11 @@ export function getSiteFavicon<T>(url: string) {
     data: { url },
   })
 }
+
+// 记一次点击（按使用频率排序用）。fire-and-forget，失败不影响跳转。
+export function click<T>(id: number) {
+  return post<T>({
+    url: '/panel/itemIcon/click',
+    data: { id },
+  })
+}

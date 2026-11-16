@@ -16,6 +16,9 @@ type ItemIcon struct {
 	Description     string                    `gorm:"type:varchar(1000)" json:"description"`
 	OpenMethod      int                       `gorm:"type:tinyint(1)" json:"openMethod"`
 	Sort            int                       `gorm:"type:int(11)" json:"sort"`
+	// 点击次数：用来「按使用频率排序」。访客点一次 +1，不做去重 ——
+	// 目的是「常用的排前面」，不是审计，所以简单计数就够。
+	ClickCount      int                       `gorm:"type:int(11);default:0" json:"clickCount"`
 	ItemIconGroupId int                       `json:"itemIconGroupId"`
 	UserId          uint                      `json:"userId"`
 	User            User                      `json:"user"`
