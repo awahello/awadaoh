@@ -45,6 +45,12 @@ func PublicModeInterceptor(c *gin.Context) {
 			}
 		} else {
 			global.Logger.Debug("token为空或者不OK")
+			// 面板刚重启时内存映射是空的，但 cToken 本身还有效 ——
+			// 不恢复的话所有人都静默变成访客，内网地址被打成 🔒。
+			if u, recovered := userFromCToken(cToken); recovered {
+				c.Set("userInfo", u)
+				return
+			}
 		}
 	} else {
 		global.Logger.Debug("cToken不存在")

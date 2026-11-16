@@ -29,6 +29,12 @@ func LoginInterceptor(c *gin.Context) {
 		token, ok = global.CUserToken.Get(cToken)
 		// 可能已经安全退出或者很久没有使用已过期
 		if !ok || token == "" {
+			// 还有一种情况：面板刚重启，内存映射没了，但 cToken 本身是有效的。
+			// 从 cToken 尾巴反推用户，别让所有人重新登录一次。
+			if u, recovered := userFromCToken(cToken); recovered {
+				c.Set("userInfo", u)
+				return
+			}
 			apiReturn.ErrorByCode(c, 1001)
 			c.Abort() // 终止执行后续的操作，一般配合return使用
 			return
