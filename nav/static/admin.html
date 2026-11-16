@@ -985,7 +985,7 @@
 				+ (CFG.sync.enabled ? ' checked' : '') + '><i></i>'
 				+ '<span class="hint">关闭后只保留手动「立即同步」</span></label>')
 			+ row('书签文件', '<input class="field" id="s-path" value="' + esc(CFG.sync.path || '') + '"'
-				+ ' placeholder="留空 = 自动找本机 Chrome / Edge 的 Bookmarks">')
+				+ ' placeholder="留空即可，自动检测 Chrome / Edge / Chromium">')
 			+ '<div class="hint" style="margin-left:130px;margin-top:-4px">'
 			+ 'Windows 例：<code>C:\\Users\\YOU\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Bookmarks</code><br>'
 			+ 'macOS 例：<code>~/Library/Application Support/Google/Chrome/Default/Bookmarks</code>'
@@ -1031,7 +1031,7 @@
 				body: JSON.stringify({ path: CFG.sync.path || '' })
 			}).then(function (d) {
 				if (!d.ok) return out('<span style="color:#FF8A8A">' + esc(d.error) + '</span>');
-				out('✅ 找到文件：<code>' + esc(d.resolvedPath) + '</code><br>解析到 <b>' + d.groupsCount
+				out('✅ 找到文件：<code>' + esc(d.pathDisplay || d.resolvedPath) + '</code><br>解析到 <b>' + d.groupsCount
 					+ '</b> 个分组 / <b>' + d.sitesCount + '</b> 个站点<br>'
 					+ d.names.slice(0, 12).map(function (n) { return '📁 ' + esc(n); }).join('　'));
 			}).catch(function (e) { out('<span style="color:#FF8A8A">' + esc(e.message) + '</span>'); });
@@ -1069,7 +1069,7 @@
 				var st = $('#s-state');
 				if (!st) return;
 				var rows = [
-					['实际路径', '<code>' + esc(s.resolvedPath || '(未找到)') + '</code>'],
+					['实际路径', '<code>' + esc(s.pathDisplay || s.resolvedPath || '(未找到)') + '</code>'],
 					['文件存在', s.exists ? '✅ 是' : '❌ 否'],
 					['文件更新时间', s.mtime ? new Date(s.mtime * 1000).toLocaleString() : '—'],
 					['上次同步', s.lastSync ? new Date(s.lastSync * 1000).toLocaleString() : '从未'],

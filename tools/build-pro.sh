@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Awadaoh · 组装 PRO 镜像物料
 #
-# 输入：官方 release 解压目录（含 sun-panel 二进制 + web/）
+# 输入：release 解压目录（含 sun-panel 或 awadaoh 二进制 + web/）
 # 输出：<OUT>/awadaoh        已解锁 PRO 的后端二进制
 #       <OUT>/web/           已注入导航站主题、已解锁 isPro 的前端包
 #
@@ -21,7 +21,9 @@ PY="${PYTHON:-python3}"
 if [ -z "$SRC" ] || [ ! -d "$SRC" ]; then
   echo "用法: $0 <解压后的 release 目录> [输出目录]"; exit 1
 fi
-[ -f "$SRC/sun-panel" ] || { echo "缺少 $SRC/sun-panel"; exit 1; }
+BIN="$SRC/sun-panel"
+[ -f "$BIN" ] || BIN="$SRC/awadaoh"
+[ -f "$BIN" ] || { echo "缺少 $SRC/sun-panel（或 awadaoh）"; exit 1; }
 [ -d "$SRC/web" ] || { echo "缺少 $SRC/web"; exit 1; }
 
 [ -n "$OUT" ] || OUT="$ROOT/pro"
@@ -31,7 +33,7 @@ rm -rf "$OUT"
 mkdir -p "$OUT"
 
 echo "==> 复制二进制与前端"
-cp "$SRC/sun-panel" "$OUT/awadaoh"
+cp "$BIN" "$OUT/awadaoh"
 chmod +x "$OUT/awadaoh"
 cp -r "$SRC/web" "$OUT/web"
 

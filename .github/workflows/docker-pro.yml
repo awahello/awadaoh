@@ -19,7 +19,9 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  UPSTREAM_REPO: hslr-s/sun-panel
+  # 物料优先从本仓库的 release 取（tools/mirror-pro.sh 镜像上来的一次性包），
+  # 只有本仓库没有对应 tag 时才回退上游同版本。
+  MIRROR_REPO: ${{ github.repository }}
   UPSTREAM_TAG: v2.0.2-beta261110
 
 jobs:
@@ -40,19 +42,13 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "上游版本: $TAG"
 
-      - name: 下载并解包上游 release（amd64 / arm64）
+      - name: 取物料并解包（amd64 / arm64）
         run: |
           set -euo pipefail
-          TAG='${{ steps.up.outputs.tag }}'
+          TAG="${{ steps.up.outputs.tag }}"
+          echo "物料版本: $TAG  来源仓库: $MIRROR_REPO"
           for ARCH in amd64 arm64; do
-            NAME="sun-panel_${TAG}_linux_${ARCH}.tar.gz"
-            URL="https://github.com/${UPSTREAM_REPO}/releases/download/${TAG}/${NAME}"
-            echo "==> $ARCH  $URL"
-            curl -fsSL --retry 5 --retry-delay 3 --retry-all-errors -o "/tmp/${ARCH}.tar.gz" "$URL"
-            mkdir -p "/tmp/rel-${ARCH}"
-            tar xzf "/tmp/${ARCH}.tar.gz" -C "/tmp/rel-${ARCH}" --strip-components=1
-            test -f "/tmp/rel-${ARCH}/sun-panel" || { echo "缺少 sun-panel 二进制"; exit 1; }
-            test -d "/tmp/rel-${ARCH}/web"      || { echo "缺少 web 目录"; exit 1; }
+            bash tools/fetch-pro.sh "$ARCH" "$TAG" "/tmp/rel-${ARCH}"
             ls -la "/tmp/rel-${ARCH}" | head -5
           done
 

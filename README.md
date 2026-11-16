@@ -190,25 +190,32 @@ docker run -d --name awadaoh \
 
 ### 自己构建镜像
 
-镜像由「上游同版本二进制 + 打补丁 + 主题注入」组装而成，物料不进仓库。
+镜像由「同版本 PRO 二进制 + 打补丁 + 主题注入」组装而成，物料不进仓库。
 
 ```bash
-# 1) 下载上游同版本 release（amd64 / arm64 各一份）
+# 1) 取物料（先查本仓库 release，命中即用，不碰别人）
 TAG=v2.0.2-beta261110
-curl -LO "https://github.com/hslr-s/sun-panel/releases/download/$TAG/sun-panel_${TAG}_linux_arm64.tar.gz"
-mkdir -p rel-arm64 && tar xzf sun-panel_${TAG}_linux_arm64.tar.gz -C rel-arm64 --strip-components=1
+./tools/fetch-pro.sh arm64 "$TAG" rel-arm64
+./tools/fetch-pro.sh amd64 "$TAG" rel-amd64
 
 # 2) 组装物料（打 ProIsExpired 补丁 + isPro 解锁 + 导航站主题注入）
-python -m pip install --upgrade pip   # 仅需标准库，无需额外依赖
 ./tools/build-pro.sh rel-arm64 pro/arm64
+./tools/build-pro.sh rel-amd64 pro/amd64
 
 # 3) 构建镜像
 docker build -f Dockerfile.pro -t awahello/awadaoh:latest .
 
 # 4) 多架构推送
-./tools/build-pro.sh rel-amd64 pro/amd64
 docker buildx build --platform linux/amd64,linux/arm64 \
   -f Dockerfile.pro -t awahello/awadaoh:latest --push .
+```
+
+物料只从**本仓库** release 下载，包名固定为 `awadaoh-pro_<TAG>_linux_<ARCH>.tar.gz`。
+新版本第一次构建前，把包镜像到自己的 release 一次，之后本地和 CI 都不再访问别人的仓库：
+
+```bash
+./tools/mirror-pro.sh v2.0.2-beta261110 ./awadaoh-pro_v2.0.2-beta261110_linux_arm64.tar.gz
+# => https://github.com/awahello/awadaoh/releases/download/v2.0.2-beta261110/awadaoh-pro_v2.0.2-beta261110_linux_arm64.tar.gz
 ```
 
 推送 tag 到仓库后，`.github/workflows/docker-pro.yml` 会自动完成上面全部步骤，

@@ -576,6 +576,47 @@ def chrome_default_paths():
     return out
 
 
+def display_path(p):
+    """把绝对路径折叠成可展示的形式，避免后台界面/错误信息里出现本机目录结构。
+
+    /home/you/.config/google-chrome/Default/Bookmarks  ->  ~/.config/google-chrome/Default/Bookmarks
+    <项目>/nav/data/Bookmarks                          ->  ./data/Bookmarks
+    其它（比如 C:\\Users\\YOU\\AppData\\...）              ->  ~\\AppData\\... 或 …/Default/Bookmarks
+    """
+    raw = str(p or "").strip()
+    if not raw:
+        return ""
+    try:
+        ap = os.path.abspath(os.path.expanduser(raw))
+    except Exception:
+        return raw
+
+    def fold(prefix, mark):
+        try:
+            pre = os.path.abspath(prefix)
+        except Exception:
+            return None
+        if not pre:
+            return None
+        a, b = ap.lower().replace("/", "\\"), pre.lower().replace("/", "\\")
+        if a == b:
+            return mark
+        if a.startswith(b + "\\"):
+            rel = ap[len(pre):].lstrip("\\/").replace("\\", "/")
+            return mark + "/" + rel if rel else mark
+        return None
+
+    for prefix, mark in ((os.path.expanduser("~"), "~"), (BASE, ".")):
+        got = fold(prefix, mark)
+        if got:
+            return got
+
+    parts = [x for x in raw.replace("\\", "/").split("/") if x]
+    if len(parts) > 3:
+        return "…/" + "/".join(parts[-2:])
+    return raw
+
+
 def resolve_bookmark_path(cfg):
     s = cfg.get("sync") or {}
     p = (s.get("path") or "").strip()
@@ -638,7 +679,7 @@ def sync_once(force=False, path_override=None):
         SYNC_STATE["lastCheck"] = int(time.time())
 
         if not p or not os.path.isfile(p):
-            msg = "找不到书签文件：%s" % (p or "(未配置，可在后台填 Chrome 的 Bookmarks 路径)")
+            msg = "找不到书签文件：%s" % (display_path(p) or "(未配置，可在后台填 Chrome 的 Bookmarks 路径)")
             sync["lastResult"] = msg
             cfg["sync"] = sync
             save_config(cfg)
@@ -829,6 +870,7 @@ class Handler(BaseHTTPRequestHandler):
             s = dict(cfg.get("sync") or {})
             path = resolve_bookmark_path(cfg)
             s["resolvedPath"] = path
+            s["pathDisplay"] = display_path(path)
             s["exists"] = bool(path and os.path.isfile(path))
             s["candidates"] = chrome_default_paths()[:6]
             s["state"] = dict(SYNC_STATE)
@@ -907,13 +949,14 @@ class Handler(BaseHTTPRequestHandler):
             tmp["sync"] = sync
             path = resolve_bookmark_path(tmp)
             if not path or not os.path.isfile(path):
-                return self._json({"ok": False, "error": "文件不存在：%s" % (path or "(空)"), "resolvedPath": path})
+                return self._json({"ok": False, "error": "文件不存在：%s" % (display_path(path) or "(空)"),
+                               "resolvedPath": path, "pathDisplay": display_path(path)})
             try:
                 with open(path, "rb") as f:
                     groups = parse_any(f.read())
             except Exception as e:
-                return self._json({"ok": False, "error": "解析失败：%s" % e, "resolvedPath": path})
-            return self._json({"ok": True, "resolvedPath": path,
+                return self._json({"ok": False, "error": "解析失败：%s" % e, "resolvedPath": path, "pathDisplay": display_path(path)})
+            return self._json({"ok": True, "resolvedPath": path, "pathDisplay": display_path(path),
                                "groupsCount": len(groups),
                                "sitesCount": sum(len(g["sites"]) for g in groups),
                                "privateCount": sum(1 for g in groups
