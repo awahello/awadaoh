@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="akGradient" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#5B6CFF"/>
+      <stop offset="100%" stop-color="#22D3C5"/>
+    </linearGradient>
+    <linearGradient id="akGloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.22"/>
+      <stop offset="60%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect x="16" y="16" width="480" height="480" rx="118" fill="url(#akGradient)"/>
+  <rect x="16" y="16" width="480" height="240" rx="118" fill="url(#akGloss)"/>
+  <path fill="#ffffff" fill-rule="evenodd"
+        d="M256 118 L378 400 H312 L290 348 H222 L200 400 H134 Z
+           M256 234 L276 296 H236 Z"/>
+  <circle cx="388" cy="132" r="16" fill="#ffffff" fill-opacity="0.85"/>
+</svg>

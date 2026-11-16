@@ -1,0 +1,141 @@
+/* ── AKKdaoh 视觉层（导航站风格） ──────────────────────────────────
+   只叠加视觉：品牌色、图标卡、分组标题、搜索框、滚动条。
+   不改动模板结构，升级上游代码时可直接替换。                     */
+
+:root {
+	--ak-primary: #5B6CFF;
+	--ak-primary-soft: rgba(91, 108, 255, 0.18);
+	--ak-accent: #22D3C5;
+	--ak-radius-icon: 20px;
+	--ak-radius-card: 18px;
+	--ak-shadow-icon: 0 4px 14px rgba(8, 12, 28, 0.26);
+	--ak-shadow-icon-hover: 0 12px 26px rgba(91, 108, 255, 0.40);
+	--ak-font: "Inter", "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei",
+		-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+html,
+body,
+#app {
+	height: 100%;
+}
+
+body {
+	padding-bottom: constant(safe-area-inset-bottom);
+	padding-bottom: env(safe-area-inset-bottom);
+	font-family: var(--ak-font);
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+	background: var(--ak-primary-soft);
+}
+
+/* ── 分组标题：左侧主色竖条 + 细线延伸 ─────────────────────────── */
+.group-title {
+	position: relative;
+	padding-left: 14px;
+	letter-spacing: 0.04em;
+	font-weight: 700;
+}
+
+.group-title::before {
+	content: "";
+	position: absolute;
+	left: 0;
+	top: 50%;
+	transform: translateY(-50%);
+	width: 4px;
+	height: 1.05em;
+	border-radius: 4px;
+	background: linear-gradient(180deg, var(--ak-primary), var(--ak-accent));
+	box-shadow: 0 0 12px rgba(91, 108, 255, 0.55);
+}
+
+/* ── 图标卡：统一 76px 圆角方块，悬停浮起 + 主色投影 ───────────── */
+.item-card-small-icon {
+	width: 76px !important;
+	height: 76px !important;
+	border-radius: var(--ak-radius-icon) !important;
+	box-shadow: var(--ak-shadow-icon);
+	transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+		box-shadow 0.2s ease, filter 0.2s ease !important;
+	will-change: transform;
+}
+
+.item-card:hover .item-card-small-icon {
+	transform: translateY(-4px) scale(1.04);
+	box-shadow: var(--ak-shadow-icon-hover);
+	filter: saturate(1.1) brightness(1.04);
+}
+
+.item-card-small-title {
+	font-size: 12px;
+	line-height: 1.35;
+	margin-top: 6px;
+	opacity: 0.86;
+	transition: opacity 0.2s ease;
+	text-shadow: 0 1px 4px rgba(0, 0, 0, 0.65);
+}
+
+.item-card:hover .item-card-small-title {
+	opacity: 1;
+}
+
+/* ── 详情风格卡片 ─────────────────────────────────────────────── */
+.item-card-info {
+	border-radius: var(--ak-radius-card) !important;
+	border: 1px solid rgba(255, 255, 255, 0.10);
+	box-shadow: var(--ak-shadow-icon);
+	transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+		box-shadow 0.2s ease !important;
+}
+
+.item-card:hover .item-card-info {
+	transform: translateY(-3px);
+	box-shadow: var(--ak-shadow-icon-hover);
+}
+
+/* ── 搜索框：胶囊形，聚焦时主色描边 ───────────────────────────── */
+.search-box,
+.search-box input {
+	border-radius: 999px !important;
+}
+
+.search-box input {
+	transition: box-shadow 0.24s ease, background-color 0.24s ease;
+}
+
+.search-box input:focus {
+	box-shadow: 0 0 0 2px rgba(91, 108, 255, 0.55),
+		0 10px 30px rgba(91, 108, 255, 0.22);
+}
+
+/* ── 滚动条 ───────────────────────────────────────────────────── */
+*::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+	background: rgba(140, 150, 190, 0.34);
+	border-radius: 8px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+	background: var(--ak-primary);
+}
+
+/* ── 登录页背景：品牌双色光斑 ─────────────────────────────────── */
+.ak-login-bg {
+	background:
+		radial-gradient(1100px 560px at 10% -10%, rgba(91, 108, 255, 0.40), transparent 62%),
+		radial-gradient(900px 520px at 100% 110%, rgba(34, 211, 197, 0.28), transparent 62%),
+		linear-gradient(160deg, #0A0F1E 0%, #141B36 55%, #0A0F1E 100%);
+	background-attachment: fixed;
+}

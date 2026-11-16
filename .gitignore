@@ -1,0 +1,79 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# 依赖
+node_modules/
+pnpm-store/
+
+# 构建产物
+dist/
+dist-ssr/
+*.local
+.vite/
+
+# 后端运行产物
+service/akkdaoh
+service/akkdaoh.exe
+service/assets/bindata.go
+service/database.db
+service/conf/
+service/uploads/
+service/runtime/
+service/logs/
+
+# 部署数据（compose 挂载目录）
+conf/
+uploads/
+database/
+runtime/
+
+# 编辑器 / 系统
+.idea/
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
+.env.local
+.env.*.local
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+.DS_Store
+dist
+dist-ssr
+coverage
+*.local
+
+/cypress/videos/
+/cypress/screenshots/
+
+# Editor directories and files
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.pnpm-store
+
+# Environment variables files
+/service/.env
+.history
+service_node
+
+bindata.go
+service/assets/bindata.go
+service/conf
+service/lang
+service/database
+service/web
+service/uploads
+service/plugins
