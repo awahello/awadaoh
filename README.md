@@ -182,8 +182,14 @@ environment:
 
 ## 特性
 
-- **导航站布局**：分组标题 + 图标网格，深/浅色自动跟随系统，背景图、模糊、遮罩全可调
-- **图标分组管理**：拖拽排序、批量导入导出、书签 HTML 转换工具
+- **导航站布局**：左侧分类栏 + 顶部搜索 + 图标网格，壁纸 / 模糊 / 遮罩可调
+- **分类可见性**：每个分类可选「公开 / 登录后可见 / 隐藏」，访客拿到的列表里就没有它
+- **书签导入**：直接吃浏览器「导出书签」的 HTML 和 Chrome 的 `Bookmarks` JSON，不用先转换
+- **书签同步**：Chrome 扩展读本地书签推给面板（等价于「登录谷歌就同步」）；也可以让面板盯 `Bookmarks` 文件
+- **导出书签**：一键导出 Netscape HTML（Chrome / Edge / Firefox 直接导入）或完整 JSON 备份
+- **前台访问密码**：可选开启，开了之后访客必须先输密码，服务端不下发分组和站点
+- **内网地址保护**：自动识别 `192.168.*` `10.*` `*.lan` 等，访客视图打码或整条隐藏
+- **按使用频率排序**：记录每个站点被点的次数，一键切「常用的排前面」
 - **内置搜索**：可自定义搜索引擎，支持页内图标快速过滤
 - **系统监控**：CPU / 内存 / 磁盘 / 网络，可对访客公开
 - **Docker 面板**：容器列表、启停、日志
@@ -270,6 +276,128 @@ docker buildx build --platform linux/amd64,linux/arm64 \
 补丁原理与全部 13 个调用点见 [doc/PRO.md](./doc/PRO.md)；纯源码社区版可用
 `docker build -t awadaoh:oss .`（不含 PRO 功能）。
 
+## 更新
+
+数据都在挂载卷里（`conf/` `uploads/` `database/`），更新只换镜像，**不会丢配置和站点**。
+
+### 面板：拉新镜像
+
+```bash
+cd ~/awadaoh
+docker compose pull
+docker compose up -d
+docker compose logs --tail=30
+```
+
+`pull` 说 `up to date` 但界面明显还是旧的，是本地缓存了旧 digest，强制换一次：
+
+```bash
+cd ~/awadaoh
+docker compose down
+docker rmi ghcr.io/awahello/awadaoh:latest
+docker compose pull
+docker compose up -d
+```
+
+### 不确定拉到了没有：等新镜像自动出现
+
+CI 从 push 到镜像可拉大约 13 分钟。这段会自己每 20 秒拉一次，digest 一变就退出：
+
+```bash
+cd ~/awadaoh
+OLD=$(docker image inspect ghcr.io/awahello/awadaoh:latest --format '{{index .RepoDigests 0}}')
+while :; do
+  docker compose pull >/dev/null 2>&1
+  d=$(docker image inspect ghcr.io/awahello/awadaoh:latest --format '{{index .RepoDigests 0}}')
+  echo "$(date +%H:%M:%S)  $d"
+  [ "$d" != "$OLD" ] && break
+  sleep 20
+done
+docker compose up -d
+```
+
+看镜像是什么时候打的：
+
+```bash
+docker image inspect ghcr.io/awahello/awadaoh:latest --format '{{.Created}}'
+```
+
+### 更新完必须硬刷浏览器
+
+`Ctrl + Shift + R`（或开隐身窗口）。前端资源名带 hash，但 `index.html` 会被 Cloudflare / nginx 缓存，
+不硬刷看到的还是旧页面。
+
+### 更新后确认三件事
+
+```bash
+docker compose logs --tail=30 | grep 管理员
+```
+
+应该看到：
+
+```
+管理员 id=1 用户名=admin 状态=1 密码 = 出厂默认值
+```
+
+- 界面：左侧分类栏 + 顶部搜索 + 卡片网格（首页），后台齿轮里多出「同步与访问」
+- 昵称：老库里 `admin@sun.cc` 会自动改成 `admin`（启动时幂等修）
+
+### 想固定版本 / 回滚
+
+用 digest 代替 `latest`，compose 里改成：
+
+```yaml
+    image: ghcr.io/awahello/awadaoh@sha256:xxxxxxxxxxxx
+```
+
+```bash
+# 看当前用的是哪个
+docker image inspect ghcr.io/awahello/awadaoh:latest --format '{{index .RepoDigests 0}}'
+```
+
+回滚就是把上面那行换回旧 digest 再 `docker compose up -d`。
+
+### 自己构建（改过源码 / 等不及 CI）
+
+```bash
+git clone --depth 1 https://github.com/awahello/awadaoh.git awadaoh-src
+cd awadaoh-src
+docker build -t ghcr.io/awahello/awadaoh:latest .
+cd ~/awadaoh
+docker compose up -d --force-recreate
+```
+
+arm64 机器上原生构建，3–5 分钟。之后 `docker compose pull` 会被 GHCR 上的覆盖，属正常。
+
+### 导航站（`nav/`）
+
+```bash
+cd ~/awadaoh-nav
+docker compose pull && docker compose up -d
+```
+
+本地构建的版本用 `docker compose up -d --build`。
+
+### Chrome 扩展
+
+`chrome://extensions` → 找到「Awadaoh 书签同步」→ 点 ↻ 重新加载。
+更新后 token 可能失效，进设置页重新登录一次。
+
+### 忘记密码
+
+```bash
+# 方式一：命令行重置（会把第一个管理员的密码打回出厂值并打印账号）
+docker exec -it awadaoh /app/awadaoh -password-reset
+
+# 方式二：改 compose 加一行环境变量重启，自动重置并打印
+#   environment:
+#     - AWADAOH_RESET_ADMIN=1
+docker compose up -d --force-recreate
+docker compose logs --tail=20
+```
+
+用完记得把 `AWADAOH_RESET_ADMIN` 删掉，否则每次重启都会再重置一次。
+
 ## 目录约定
 
 | 容器路径 | 说明 |
@@ -282,13 +410,36 @@ docker buildx build --platform linux/amd64,linux/arm64 \
 
 ## 从 Chrome 书签导入
 
-仓库自带 `tools/bookmarks2sunpanel.py`，把浏览器导出的书签 HTML 转成本项目可导入的 JSON：
+面板的「导入导出」现在直接认两种浏览器原生格式，**不用先转换**：
+
+| 文件 | 从哪来 |
+|---|---|
+| `*.html` | 浏览器「导出书签」得到的 Netscape 书签文件 |
+| `Bookmarks`（JSON） | `chrome://bookmarks` 导出，或直接拷 Chrome profile 里的 `Bookmarks` 文件 |
+
+「设置 → 导入导出 → 导入」选文件即可，弹窗会显示解析到的分组数和站点数，
+同名分组合并，站点图标按域名自动抓 favicon（老数据可以点「分组管理 → 补全站点图标」批量补）。
+
+### 自动同步（三种方式，按需选）
+
+| 方式 | 适合 | 做法 |
+|---|---|---|
+| Chrome 扩展（推荐） | Chrome 登录着谷歌账号 | 装 `chrome-extension/`，见 [chrome-extension/README.md](./chrome-extension/README.md) |
+| 盯文件 | 面板和 Chrome 在同一台机器 / 容器能挂到 profile | 后台「同步与访问」填 `/bookmarks/Bookmarks`，再把宿主机目录挂进容器 |
+| 手动导入 | 偶尔更新一次 | 导出 → 导入 |
+
+> Google 没有公开的 Chrome 书签 API，Chrome 同步是私有协议，所以第三方没法「登录谷歌就读到」。
+> 扩展的做法是读 Chrome 已经同步到本机的书签，再推给面板 —— 效果等价。
+
+### 老工具（仍然可用）
+
+`tools/bookmarks2sunpanel.py` 把书签 HTML 转成本项目早期格式的 JSON：
 
 ```bash
 python tools/bookmarks2sunpanel.py bookmarks.html --icon favicon
 ```
 
-生成的 `*.sun-panel.json` 在「设置 → 导出导入 → 导入配置」里导入即可。
+生成的 `*.sun-panel.json` 也能导入，但新版本已经不需要这一步了。
 
 ## 环境变量 / 端口
 
