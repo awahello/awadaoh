@@ -186,7 +186,12 @@
     "username": "Username",
     "verify": "Verify",
     "warning": "Warning",
-    "yes": "Yes"
+    "yes": "Yes",
+    "all": "All",
+    "visiblePublic": "Public",
+    "visibleLogin": "After login",
+    "visibleHidden": "Hidden",
+    "groupVisible": "Category visibility"
   },
   "deskModule": {
     "clock": {

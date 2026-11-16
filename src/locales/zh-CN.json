@@ -186,7 +186,12 @@
     "username": "账号",
     "verify": "验证",
     "warning": "警告",
-    "yes": "是"
+    "yes": "是",
+    "all": "全部",
+    "visiblePublic": "公开",
+    "visibleLogin": "登录后可见",
+    "visibleHidden": "隐藏",
+    "groupVisible": "分类可见性"
   },
   "deskModule": {
     "clock": {

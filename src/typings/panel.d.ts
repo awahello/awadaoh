@@ -13,12 +13,17 @@ declare namespace Panel {
         description?: string
         openMethod: number
         itemIconGroupId ?:number
+        // 服务端给访客打的码：url 已置空，前端渲染 🔒 锁卡
+        private?: boolean
+        masked?: boolean
     }
 
     interface ItemIconGroup extends Common.InfoBase {
         icon?: string
         title?: string
         sort?:number
+        // 0 公开 / 1 登录后可见 / 2 隐藏
+        visible?: number
     }
 
     interface ItemIcon {

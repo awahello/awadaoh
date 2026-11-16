@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { VueDraggable } from 'vue-draggable-plus'
 import { NBackTop, NButton, NButtonGroup, NDropdown, NModal, NSkeleton, NSpin, useDialog, useMessage } from 'naive-ui'
-import { nextTick, onMounted, ref } from 'vue'
+import { nextTick, onMounted, ref, computed } from 'vue'
 import { AppIcon, AppStarter, EditItem } from './components'
 import { Clock, SearchBox, SystemMonitor } from '@/components/deskModule'
 import { SvgIcon } from '@/components/common'
 import { deletes, getListByGroupId, saveSort } from '@/api/panel/itemIcon'
-import { getList as getGroupList } from '@/api/panel/itemIconGroup'
+import { edit as editGroup, getList as getGroupList } from '@/api/panel/itemIconGroup'
 
 import { setTitle, updateLocalUserInfo } from '@/utils/cmn'
 import { useAuthStore, usePanelState } from '@/store'
@@ -47,6 +47,41 @@ const settingModalShow = ref(false)
 
 const items = ref<ItemGroup[]>([])
 const filterItems = ref<ItemGroup[]>([])
+
+// 左侧分类筛选：null = 全部
+const activeGroupId = ref<number | null>(null)
+const totalItemCount = computed(() => filterItems.value.reduce((n, g) => n + (g.items?.length || 0), 0))
+
+// 分类可见性：0 公开 / 1 登录后可见 / 2 隐藏
+const visibilityOptions = [
+  { label: t('common.visiblePublic'), key: 0 },
+  { label: t('common.visibleLogin'), key: 1 },
+  { label: t('common.visibleHidden'), key: 2 },
+]
+function visibilityIcon(v?: number) {
+  if (v === 1)
+    return 'mdi:account-lock-outline'
+  if (v === 2)
+    return 'mdi:eye-off-outline'
+  return 'mdi:eye-outline'
+}
+function visibilityLabel(v?: number) {
+  if (v === 1)
+    return t('common.visibleLogin')
+  if (v === 2)
+    return t('common.visibleHidden')
+  return t('common.visiblePublic')
+}
+async function handleSetGroupVisible(group: ItemGroup, visible: number) {
+  try {
+    await editGroup({ ...group, visible })
+    group.visible = visible
+    ms.success(t('common.saveSuccess'))
+  }
+  catch (e: any) {
+    ms.error(e?.message || t('common.saveFail'))
+  }
+}
 
 function openPage(openMethod: number, url: string, title?: string) {
   switch (openMethod) {
@@ -363,7 +398,28 @@ function handleAddItem(itemIconGroupId?: number) {
         </div>
 
         <!-- 应用盒子 -->
-        <div :style="{ marginLeft: `${panelState.panelConfig.marginX}px`, marginRight: `${panelState.panelConfig.marginX}px` }">
+        <div class="flex gap-2 items-start" :style="{ marginLeft: `${panelState.panelConfig.marginX}px`, marginRight: `${panelState.panelConfig.marginX}px` }">
+          <!-- 左侧分类栏：点一下只看这一组，再点回到全部 -->
+          <aside v-if="filterItems.length > 1" class="cat-rail">
+            <button
+              class="cat-item" :class="{ 'is-on': activeGroupId === null }"
+              @click="activeGroupId = null"
+            >
+              <span class="cat-name">{{ t('common.all') }}</span>
+              <span class="cat-count">{{ totalItemCount }}</span>
+            </button>
+            <button
+              v-for="g in filterItems" :key="g.id"
+              class="cat-item" :class="{ 'is-on': activeGroupId === g.id }"
+              :title="g.title"
+              @click="activeGroupId = activeGroupId === g.id ? null : (g.id ?? null)"
+            >
+              <span class="cat-name">{{ g.title }}</span>
+              <span class="cat-count">{{ (g.items || []).length }}</span>
+            </button>
+          </aside>
+
+          <div class="flex-1 min-w-0">
           <!-- 系统监控状态 -->
           <div
             v-if="panelState.panelConfig.systemMonitorShow
@@ -378,8 +434,9 @@ function handleAddItem(itemIconGroupId?: number) {
           </div>
 
           <!-- 组纵向排列 -->
+          <template v-for="(itemGroup, itemGroupIndex) in filterItems" :key="itemGroup.id || itemGroupIndex">
           <div
-            v-for="(itemGroup, itemGroupIndex) in filterItems" :key="itemGroupIndex"
+            v-if="activeGroupId === null || activeGroupId === itemGroup.id"
             class="item-list mt-[50px]"
             :class="itemGroup.sortStatus ? 'shadow-2xl border shadow-[0_0_30px_10px_rgba(0,0,0,0.3)]  p-[10px] rounded-2xl' : ''"
             @mouseenter="handleSetHoverStatus(itemGroupIndex, true)"
@@ -401,6 +458,15 @@ function handleAddItem(itemIconGroupId?: number) {
                 <span class="mr-2 cursor-pointer " :title="t('common.sort')" @click="handleSetSortStatus(itemGroupIndex, !itemGroup.sortStatus)">
                   <SvgIcon class="text-white font-xl" icon="ri:drag-drop-line" />
                 </span>
+                <!-- 分类可见性：公开 / 登录后可见 / 隐藏 -->
+                <NDropdown
+                  trigger="click" :options="visibilityOptions"
+                  @select="(v: any) => handleSetGroupVisible(itemGroup, Number(v))"
+                >
+                  <span class="mr-2 cursor-pointer" :title="`${t('common.groupVisible')}：${visibilityLabel(itemGroup.visible)}`">
+                    <SvgIcon class="text-white font-xl" :icon="visibilityIcon(itemGroup.visible)" />
+                  </span>
+                </NDropdown>
               </div>
             </div>
 
@@ -490,6 +556,8 @@ function handleAddItem(itemIconGroupId?: number) {
                 </NButton>
               </div>
             </div>
+          </div>
+          </template>
           </div>
         </div>
         <div class="mt-5 footer" v-html="panelState.panelConfig.footerHtml" />
@@ -655,6 +723,72 @@ html {
 @media (max-width: 500px) {
   .icon-info-box{
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
+}
+
+/* 左侧分类栏 */
+.cat-rail {
+  width: 148px;
+  flex: 0 0 148px;
+  position: sticky;
+  top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  padding: 6px 4px;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(6px);
+  margin-top: 50px;
+}
+
+.cat-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 13px;
+  line-height: 1.6;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.cat-item:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.cat-item.is-on {
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+  font-weight: 600;
+}
+
+.cat-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cat-count {
+  flex: 0 0 auto;
+  font-size: 11px;
+  opacity: 0.65;
+}
+
+/* 窄屏不占横向空间，横过来当一排标签 */
+@media (max-width: 768px) {
+  .cat-rail {
+    display: none;
   }
 }
 </style>

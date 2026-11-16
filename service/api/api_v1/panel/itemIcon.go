@@ -13,6 +13,7 @@ import (
 	"awadaoh/api/api_v1/common/base"
 	"awadaoh/global"
 	"awadaoh/lib/cmn"
+	"awadaoh/lib/netguard"
 	"awadaoh/lib/siteFavicon"
 	"awadaoh/models"
 	"time"
@@ -134,6 +135,17 @@ func (a *ItemIcon) GetListByGroupId(c *gin.Context) {
 	userInfo, _ := base.GetCurrentUserInfo(c)
 	itemIcons := []models.ItemIcon{}
 
+	// 访客不能通过直接传 groupId 绕过分类可见性
+	group := models.ItemIconGroup{}
+	if err := global.Db.First(&group, "id = ? AND user_id = ?", req.ItemIconGroupId, userInfo.ID).Error; err != nil {
+		apiReturn.ErrorDatabase(c, err.Error())
+		return
+	}
+	if base.IsPublicVisit(c) && group.Visible != models.GROUP_VISIBLE_PUBLIC {
+		apiReturn.SuccessListData(c, []models.ItemIcon{}, 0)
+		return
+	}
+
 	if err := global.Db.Order("sort ,created_at").Find(&itemIcons, "item_icon_group_id = ? AND user_id=?", req.ItemIconGroupId, userInfo.ID).Error; err != nil {
 		apiReturn.ErrorDatabase(c, err.Error())
 		return
@@ -141,6 +153,16 @@ func (a *ItemIcon) GetListByGroupId(c *gin.Context) {
 
 	for k, v := range itemIcons {
 		json.Unmarshal([]byte(v.IconJson), &itemIcons[k].Icon)
+
+		// 访客拿到的是打码版：内网地址不下发，前端看到 masked 就渲染 🔒 锁卡
+		if base.IsPublicVisit(c) {
+			if _, isPrivate := netguard.MaskURL(v.Url); isPrivate {
+				itemIcons[k].Private = true
+				itemIcons[k].Masked = true
+				itemIcons[k].Url = ""
+				itemIcons[k].LanUrl = ""
+			}
+		}
 	}
 
 	apiReturn.SuccessListData(c, itemIcons, 0)

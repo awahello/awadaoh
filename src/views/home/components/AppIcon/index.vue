@@ -45,7 +45,12 @@ const textColor = computed(() => {
       <!-- 图标 -->
       <div class="app-icon-info-icon w-[70px] h-[70px]">
         <div class="w-[70px] h-full flex items-center justify-center ">
-          <ItemIcon :item-icon="itemInfo?.icon" force-background="transparent" :size="50" class="overflow-hidden rounded-xl" />
+          <ItemIcon
+            v-if="!itemInfo?.masked"
+            :item-icon="itemInfo?.icon" force-background="transparent" :size="50" class="overflow-hidden rounded-xl"
+          />
+          <!-- 内网地址：访客只看到一把锁，地址不下发 -->
+          <span v-else class="text-2xl select-none" title="内网地址，登录后可见">🔒</span>
         </div>
       </div>
 
@@ -71,9 +76,10 @@ const textColor = computed(() => {
     <div v-if="style === PanelPanelConfigStyleEnum.icon" class="app-icon-small">
       <div
         class="app-icon-small-icon overflow-hidden rounded-2xl sunpanel w-[70px] h-[70px] mx-auto rounded-2xl transition-all duration-200 hover:shadow-[0_0_20px_10px_rgba(0,0,0,0.2)]"
-        :title="itemInfo?.description"
+        :title="itemInfo?.masked ? '内网地址，登录后可见' : itemInfo?.description"
       >
-        <ItemIcon :item-icon="itemInfo?.icon" />
+        <ItemIcon v-if="!itemInfo?.masked" :item-icon="itemInfo?.icon" />
+        <span v-else class="w-full h-full flex items-center justify-center text-2xl select-none">🔒</span>
       </div>
       <div
         v-if="!iconTextIconHideTitle"

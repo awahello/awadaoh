@@ -98,6 +98,12 @@ func GetCurrentVisitMode(c *gin.Context) (visitMode int) {
 	return
 }
 
+// IsPublicVisit 本次请求是不是访客（未登录）在看。
+// 访客模式下：隐藏分组不返回、仅登录可见分组不返回、内网地址不下发。
+func IsPublicVisit(c *gin.Context) bool {
+	return GetCurrentVisitMode(c) == VISIT_MODE_PUBLIC
+}
+
 // 验证器验证
 func VerificationCheck(verificationId, vCode string) (errCode int, verificationIdRes string) {
 

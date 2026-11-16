@@ -36,8 +36,19 @@ func (a *ItemIconGroup) Edit(c *gin.Context) {
 		global.Db.Model(&models.ItemIconGroup{}).
 			Select(updateField).
 			Where("id=?", req.ID).Updates(&req)
+
+		// 可见性单独更新：上面的字段列表里混着图标表的列，不往里加，免得生成不存在的列
+		if req.Visible < models.GROUP_VISIBLE_PUBLIC || req.Visible > models.GROUP_VISIBLE_HIDDEN {
+			req.Visible = models.GROUP_VISIBLE_PUBLIC
+		}
+		global.Db.Model(&models.ItemIconGroup{}).
+			Where("id=? AND user_id=?", req.ID, userInfo.ID).
+			Update("visible", req.Visible)
 	} else {
 		// 创建
+		if req.Visible < models.GROUP_VISIBLE_PUBLIC || req.Visible > models.GROUP_VISIBLE_HIDDEN {
+			req.Visible = models.GROUP_VISIBLE_PUBLIC
+		}
 		global.Db.Create(&req)
 	}
 
@@ -84,6 +95,18 @@ func (a *ItemIconGroup) GetList(c *gin.Context) {
 		apiReturn.ErrorDatabase(c, err.Error())
 		return
 	} else {
+		// 访客只看得到「公开」分组；隐藏(2) 和 登录后可见(1) 都不下发
+		if base.IsPublicVisit(c) {
+			publicGroups := make([]models.ItemIconGroup, 0, len(groups))
+			for _, g := range groups {
+				if g.Visible == models.GROUP_VISIBLE_PUBLIC {
+					publicGroups = append(publicGroups, g)
+				}
+			}
+			apiReturn.SuccessListData(c, publicGroups, 0)
+			return
+		}
+
 		apiReturn.SuccessListData(c, groups, 0)
 	}
 }
