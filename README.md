@@ -23,6 +23,11 @@
 | 上手 | `docker compose up -d`，30 秒 | 拉镜像 / 自己构建 |
 | 适合 | 只想要一个好看的自用起始页 | 想要 NAS 控制台那一套 |
 
+```bash
+git clone https://github.com/awahello/awadaoh.git
+cd awadaoh
+```
+
 ---
 
 ## 极简导航站（`nav/`）
