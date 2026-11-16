@@ -84,3 +84,4 @@ pro/
 nav/data/
 nav/**/__pycache__/
 *.pyc
+.devtmp/
