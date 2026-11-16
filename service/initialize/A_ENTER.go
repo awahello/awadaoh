@@ -14,6 +14,7 @@ import (
 	"awadaoh/initialize/runlog"
 	"awadaoh/initialize/systemSettingCache"
 	"awadaoh/initialize/userToken"
+	"awadaoh/lib/panelSync"
 	"awadaoh/lib/cmn"
 	"awadaoh/models"
 	"awadaoh/structs"
@@ -133,6 +134,16 @@ func DatabaseConnect() {
 
 	// 把管理员账号打到启动日志里，省得用户对着「用户名或密码错误」猜账号
 	database.LogAdminAccounts(global.Db)
+
+	// 谷歌书签同步：后台线程 10 秒一拍，按配置里的间隔决定这一拍要不要真去读文件。
+	// 目标账号取第一个管理员（面板是多用户的，导航站是单用户的，这里得钉一个）。
+	panelSync.StartWatcher(func() uint {
+		u := models.User{}
+		if err := global.Db.Where("role = ?", 1).Order("id asc").First(&u).Error; err != nil {
+			return 0
+		}
+		return u.ID
+	})
 }
 
 // 命令行运行

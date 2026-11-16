@@ -50,6 +50,17 @@ func PublicModeInterceptor(c *gin.Context) {
 		global.Logger.Debug("cToken不存在")
 	}
 
+	// 前台访问密码：开了之后，没有解锁凭据的访客什么都拿不到。
+	// 放在这里是因为上面已经把「真的登录了」的请求全部放走了 ——
+	// 管理员不该被自己设的锁关在门外。
+	if lock := getFrontLock(); lock.Enabled && lock.Password != "" {
+		if !global.FrontTokenOK(c.GetHeader("X-Front-Token")) {
+			apiReturn.ErrorCode(c, 1008, "需要访问密码", nil)
+			c.Abort()
+			return
+		}
+	}
+
 	// 获取公开账号的信息
 	var userId *uint
 	if err := global.SystemSetting.GetValueByInterface(systemSetting.PANEL_PUBLIC_USER_ID, &userId); err == nil && userId != nil {
@@ -83,4 +94,13 @@ func PublicModeInterceptor(c *gin.Context) {
 	global.Logger.Debug("访客用户不存在:", userId, " ", token)
 	apiReturn.ErrorCode(c, 1001, global.Lang.Get("login.err_token_expire"), nil)
 	c.Abort()
+}
+
+// getFrontLock 读前台访问密码设置。读不到就当没开。
+func getFrontLock() systemSetting.FrontLockSetting {
+	s := systemSetting.FrontLockSetting{}
+	if err := global.SystemSetting.GetValueByInterface(systemSetting.PANEL_FRONT_LOCK, &s); err != nil {
+		return systemSetting.FrontLockSetting{}
+	}
+	return s
 }
