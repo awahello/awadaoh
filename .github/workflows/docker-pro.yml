@@ -1,0 +1,102 @@
+name: build-pro
+
+# 构建 PRO 全功能镜像：
+#   后端 = 上游 release 二进制 + ProIsExpired 恒 false 补丁
+#   前端 = 上游同版本 web 包 + isPro 解锁 + AKKdaoh 导航站主题注入
+# 产出：ghcr.io/<owner>/akkdaoh:latest（linux/amd64 + linux/arm64）
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      upstream_tag:
+        description: '上游 release tag'
+        required: false
+        default: 'v2.0.2-beta261110'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  UPSTREAM_REPO: hslr-s/sun-panel
+  UPSTREAM_TAG: v2.0.2-beta261110
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve upstream tag
+        id: up
+        run: |
+          TAG="${{ github.event.inputs.upstream_tag || env.UPSTREAM_TAG }}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "上游版本: $TAG"
+
+      - name: 下载并解包上游 release（amd64 / arm64）
+        run: |
+          set -euo pipefail
+          TAG='${{ steps.up.outputs.tag }}'
+          for ARCH in amd64 arm64; do
+            NAME="sun-panel_${TAG}_linux_${ARCH}.tar.gz"
+            URL="https://github.com/${UPSTREAM_REPO}/releases/download/${TAG}/${NAME}"
+            echo "==> $ARCH  $URL"
+            curl -fsSL --retry 5 --retry-delay 3 --retry-all-errors -o "/tmp/${ARCH}.tar.gz" "$URL"
+            mkdir -p "/tmp/rel-${ARCH}"
+            tar xzf "/tmp/${ARCH}.tar.gz" -C "/tmp/rel-${ARCH}" --strip-components=1
+            test -f "/tmp/rel-${ARCH}/sun-panel" || { echo "缺少 sun-panel 二进制"; exit 1; }
+            test -d "/tmp/rel-${ARCH}/web"      || { echo "缺少 web 目录"; exit 1; }
+            ls -la "/tmp/rel-${ARCH}" | head -5
+          done
+
+      - name: 组装物料（打补丁 + 注入主题）
+        run: |
+          set -euo pipefail
+          python3 -V
+          bash tools/build-pro.sh /tmp/rel-amd64 pro/amd64
+          bash tools/build-pro.sh /tmp/rel-arm64 pro/arm64
+          echo "--- 产物 ---"
+          ls -la pro/amd64 pro/arm64
+          du -sh pro/web
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=ref,event=tag
+            type=sha,prefix=sha-,format=short
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile.pro
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

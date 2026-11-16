@@ -1,8 +1,6 @@
-version: "3.2"
-
 services:
   akkdaoh:
-    image: awahello/akkdaoh:latest
+    image: ghcr.io/awahello/akkdaoh:latest
     container_name: akkdaoh
     volumes:
       - ./conf:/app/conf

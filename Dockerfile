@@ -34,7 +34,7 @@ RUN go env -w GO111MODULE=on \
     && go install -a -v github.com/elazarl/go-bindata-assetfs/...@latest \
     && go-bindata-assetfs -o=assets/bindata.go -pkg=assets assets/... \
     && CGO_ENABLED=1 go build -o akkdaoh \
-        --ldflags="-X akkdaoh/global.RUNCODE=release -X akkdaoh/global.ISDOCKER=docker" main.go
+        --ldflags="-X akkdaoh/global.RUNCODE=release -X akkdaoh/global.ISDOCKER=docker" .
 
 
 # ── 运行镜像 ─────────────────────────────────────────────────────

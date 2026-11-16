@@ -8,9 +8,20 @@
 
 一个可以自己部署、自己掌控的网址导航站：分组管理图标、内置搜索、系统监控、Docker 容器管理、多用户与访客模式。
 
+<img src="./doc/preview.png" alt="AKKdaoh 界面预览" width="100%" />
+
 </div>
 
 ---
+
+## 默认账号
+
+| 项 | 值 |
+|---|---|
+| 用户名 | `admin` |
+| 密码 | `admin` |
+
+首次登录后请到「设置 → 账号」修改密码。
 
 ## 特性
 
@@ -30,7 +41,7 @@
 ```yaml
 services:
   akkdaoh:
-    image: awahello/akkdaoh:latest
+    image: ghcr.io/awahello/akkdaoh:latest
     container_name: akkdaoh
     volumes:
       - ./conf:/app/conf
@@ -59,25 +70,37 @@ docker run -d --name akkdaoh \
   -v $(pwd)/uploads:/app/uploads \
   -v $(pwd)/database:/app/database \
   --restart unless-stopped \
-  awahello/akkdaoh:latest
+  ghcr.io/awahello/akkdaoh:latest
 ```
 
 ### 自己构建镜像
 
-```bash
-git clone https://github.com/awahello/akkdaoh.git
-cd akkdaoh
-docker build -t awahello/akkdaoh:latest .
-```
-
-多架构（amd64 / arm64）：
+镜像由「上游同版本二进制 + 打补丁 + 主题注入」组装而成，物料不进仓库。
 
 ```bash
+# 1) 下载上游同版本 release（amd64 / arm64 各一份）
+TAG=v2.0.2-beta261110
+curl -LO "https://github.com/hslr-s/sun-panel/releases/download/$TAG/sun-panel_${TAG}_linux_arm64.tar.gz"
+mkdir -p rel-arm64 && tar xzf sun-panel_${TAG}_linux_arm64.tar.gz -C rel-arm64 --strip-components=1
+
+# 2) 组装物料（打 ProIsExpired 补丁 + isPro 解锁 + 导航站主题注入）
+python -m pip install --upgrade pip   # 仅需标准库，无需额外依赖
+./tools/build-pro.sh rel-arm64 pro/arm64
+
+# 3) 构建镜像
+docker build -f Dockerfile.pro -t awahello/akkdaoh:latest .
+
+# 4) 多架构推送
+./tools/build-pro.sh rel-amd64 pro/amd64
 docker buildx build --platform linux/amd64,linux/arm64 \
-  -t awahello/akkdaoh:latest --push .
+  -f Dockerfile.pro -t awahello/akkdaoh:latest --push .
 ```
 
-推送 tag 到仓库后，`.github/workflows/docker.yml` 会自动构建并推送到 `ghcr.io/awahello/akkdaoh`。
+推送 tag 到仓库后，`.github/workflows/docker-pro.yml` 会自动完成上面全部步骤，
+把 `ghcr.io/awahello/akkdaoh:latest` 推成 amd64 + arm64 双架构。
+
+补丁原理与全部 13 个调用点见 [doc/PRO.md](./doc/PRO.md)；纯源码社区版可用
+`docker build -t akkdaoh:oss .`（不含 PRO 功能）。
 
 ## 目录约定
 
