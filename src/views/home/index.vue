@@ -5,7 +5,7 @@ import { nextTick, onMounted, ref, computed } from 'vue'
 import { AppIcon, AppStarter, EditItem } from './components'
 import { Clock, SearchBox, SystemMonitor } from '@/components/deskModule'
 import { SvgIcon } from '@/components/common'
-import { deletes, getListByGroupId, saveSort } from '@/api/panel/itemIcon'
+import { deletes, getClientEnv, getListByGroupId, saveSort } from '@/api/panel/itemIcon'
 import { edit as editGroup, getList as getGroupList } from '@/api/panel/itemIconGroup'
 
 import { setTitle, updateLocalUserInfo } from '@/utils/cmn'
@@ -51,6 +51,25 @@ const filterItems = ref<ItemGroup[]>([])
 // 左侧分类筛选：null = 全部
 const activeGroupId = ref<number | null>(null)
 const totalItemCount = computed(() => filterItems.value.reduce((n, g) => n + (g.items?.length || 0), 0))
+
+// 访问者自己是不是在内网：内网 → 内网地址直接连；外网 → 内网卡提示需要内网环境
+const clientIntranet = ref(false)
+async function detectClientEnv() {
+  try {
+    const { code, data } = await getClientEnv()
+    if (code !== 0 || !data)
+      return
+    clientIntranet.value = !!data.intranet
+    // 在内网就自动切内网模式，内网地址优先（点开就是直连，不走外网绕一圈）
+    if (clientIntranet.value && panelState.networkMode === PanelStateNetworkModeEnum.wan) {
+      panelState.setNetworkMode(PanelStateNetworkModeEnum.lan)
+      ms.info(t('panelHome.autoLanMode'))
+    }
+  }
+  catch {
+    // 探测失败就按外网处理，不影响正常浏览
+  }
+}
 
 // 分类可见性：0 公开 / 1 登录后可见 / 2 隐藏
 const visibilityOptions = [
@@ -103,20 +122,41 @@ function openPage(openMethod: number, url: string, title?: string) {
   }
 }
 
-function handleItemClick(itemGroupIndex: number, item: Panel.ItemInfo) {
-  if (items.value[itemGroupIndex] && items.value[itemGroupIndex].sortStatus) {
-    handleEditItem(item)
-    return
-  }
-
+function jumpTo(item: Panel.ItemInfo) {
   let jumpUrl = ''
-
   if (item)
     jumpUrl = (panelState.networkMode === PanelStateNetworkModeEnum.lan ? item.lanUrl : item.url) as string
   if (item.lanUrl === '')
     jumpUrl = item.url
 
   openPage(item.openMethod, jumpUrl, item.title)
+}
+
+function handleItemClick(itemGroupIndex: number, item: Panel.ItemInfo) {
+  if (items.value[itemGroupIndex] && items.value[itemGroupIndex].sortStatus) {
+    handleEditItem(item)
+    return
+  }
+
+  // 当前不在内网、地址又被收起来了：明确告诉它要什么环境，别点出一个死页
+  if (item.masked) {
+    ms.warning(t('panelHome.needIntranet'))
+    return
+  }
+
+  // 登录用户能看到内网地址，但人可能在外网：先问一句，别让他以为站点挂了
+  if (item.private && !clientIntranet.value) {
+    dialog.warning({
+      title: t('common.warning'),
+      content: t('panelHome.needIntranetConfirm'),
+      positiveText: t('common.confirm'),
+      negativeText: t('common.cancel'),
+      onPositiveClick: () => jumpTo(item),
+    })
+    return
+  }
+
+  jumpTo(item)
 }
 
 function handWindowIframeIdLoad(payload: Event) {
@@ -148,7 +188,10 @@ function updateItemIconGroupByNet(itemIconGroupIndex: number, itemIconGroupId: n
 
 function handleRightMenuSelect(key: string | number) {
   dropdownShow.value = false
-  // console.log(currentRightSelectItem, key)
+  if (key === 'needIntranet') {
+    ms.warning(t('panelHome.needIntranet'))
+    return
+  }
   let jumpUrl = panelState.networkMode === PanelStateNetworkModeEnum.lan ? currentRightSelectItem.value?.lanUrl : currentRightSelectItem.value?.url
   if (currentRightSelectItem.value?.lanUrl === '')
     jumpUrl = currentRightSelectItem.value.url
@@ -263,18 +306,28 @@ function getDropdownMenuOptions() {
 
   ]
 
-  if (currentRightSelectItem.value?.lanUrl && panelState.networkMode === PanelStateNetworkModeEnum.wan) {
+  // 不在内网、地址被收起来的卡：不给打开，只说明为什么打不开
+  if (currentRightSelectItem.value?.masked) {
+    dropdownMenuOptions.length = 0
     dropdownMenuOptions.push({
-      label: t('panelHome.openLanUrl'),
-      key: 'openLanUrl',
+      label: t('panelHome.needIntranet'),
+      key: 'needIntranet',
     })
   }
+  else {
+    if (currentRightSelectItem.value?.lanUrl && panelState.networkMode === PanelStateNetworkModeEnum.wan) {
+      dropdownMenuOptions.push({
+        label: t('panelHome.openLanUrl'),
+        key: 'openLanUrl',
+      })
+    }
 
-  if (currentRightSelectItem.value?.lanUrl && panelState.networkMode === PanelStateNetworkModeEnum.lan) {
-    dropdownMenuOptions.push({
-      label: t('panelHome.openWanUrl'),
-      key: 'openWanUrl',
-    })
+    if (currentRightSelectItem.value?.lanUrl && panelState.networkMode === PanelStateNetworkModeEnum.lan) {
+      dropdownMenuOptions.push({
+        label: t('panelHome.openWanUrl'),
+        key: 'openWanUrl',
+      })
+    }
   }
 
   if (authStore.visitMode === VisitMode.VISIT_MODE_LOGIN) {
@@ -294,6 +347,9 @@ onMounted(() => {
   // 更新用户信息
   updateLocalUserInfo()
   getList()
+
+  // 先问一句「我在不在内网」，再决定内网卡是能直连还是提示需要内网
+  detectClientEnv()
 
   // 更新同步云端配置
   panelState.updatePanelConfigByCloud()

@@ -7,6 +7,7 @@ import (
 	"awadaoh/api/api_v1/common/apiReturn"
 	"awadaoh/lib/captcha"
 	"awadaoh/lib/cmn"
+	"awadaoh/lib/netguard"
 	"awadaoh/models"
 
 	"github.com/gin-gonic/gin"
@@ -99,9 +100,17 @@ func GetCurrentVisitMode(c *gin.Context) (visitMode int) {
 }
 
 // IsPublicVisit 本次请求是不是访客（未登录）在看。
-// 访客模式下：隐藏分组不返回、仅登录可见分组不返回、内网地址不下发。
+// 访客模式下：隐藏分组不返回、仅登录可见分组不返回、内网地址按客户端是否在内网决定下不下发。
 func IsPublicVisit(c *gin.Context) bool {
 	return GetCurrentVisitMode(c) == VISIT_MODE_PUBLIC
+}
+
+// ClientIsIntranet 请求方自己是不是在内网。
+// 内网访问（家里/公司网）→ 内网地址直接下发，点开就能连；
+// 外网访问 → 地址不下发，前端显示「需要内网环境」。
+// 注意：gin 会把 X-Forwarded-For 算进 ClientIP，反向代理后面拿到的是真实客户端 IP。
+func ClientIsIntranet(c *gin.Context) bool {
+	return netguard.IsPrivateIP(c.ClientIP())
 }
 
 // 验证器验证

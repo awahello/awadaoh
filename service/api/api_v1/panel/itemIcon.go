@@ -153,19 +153,39 @@ func (a *ItemIcon) GetListByGroupId(c *gin.Context) {
 
 	for k, v := range itemIcons {
 		json.Unmarshal([]byte(v.IconJson), &itemIcons[k].Icon)
+	}
 
-		// 访客拿到的是打码版：内网地址不下发，前端看到 masked 就渲染 🔒 锁卡
-		if base.IsPublicVisit(c) {
-			if _, isPrivate := netguard.MaskURL(v.Url); isPrivate {
-				itemIcons[k].Private = true
-				itemIcons[k].Masked = true
-				itemIcons[k].Url = ""
-				itemIcons[k].LanUrl = ""
+	// 访客：内网地址按「访客自己有没有内网」分流
+	//   - 在内网（192.168./10./127. 等）→ 地址照发，点开直连
+	//   - 在外网 → 地址不下发，前端拿到 masked/needsIntranet 渲染 🔒 并提示需要内网环境
+	if base.IsPublicVisit(c) {
+		inLan := base.ClientIsIntranet(c)
+		for k, v := range itemIcons {
+			if !netguard.IsPrivateURL(v.Url) && !netguard.IsPrivateURL(v.LanUrl) {
+				continue
 			}
+			itemIcons[k].Private = true
+			if inLan {
+				continue
+			}
+			itemIcons[k].Masked = true
+			itemIcons[k].NeedsIntranet = true
+			itemIcons[k].Url = ""
+			itemIcons[k].LanUrl = ""
 		}
 	}
 
 	apiReturn.SuccessListData(c, itemIcons, 0)
+}
+
+// GetClientEnv 告诉前端「你自己在不在内网」。
+// 内网访问 → 首页自动切内网模式，内网地址优先；外网访问 → 内网卡点开提示需要内网环境。
+func (a *ItemIcon) GetClientEnv(c *gin.Context) {
+	apiReturn.SuccessData(c, gin.H{
+		"intranet":  base.ClientIsIntranet(c),
+		"clientIp":  c.ClientIP(),
+		"visitMode": base.GetCurrentVisitMode(c),
+	})
 }
 
 func (a *ItemIcon) Deletes(c *gin.Context) {

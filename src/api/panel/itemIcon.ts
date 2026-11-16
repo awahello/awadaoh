@@ -1,4 +1,17 @@
-import { post } from '@/utils/request'
+import { get, post } from '@/utils/request'
+
+// 客户端环境：intranet=true 表示访问者自己就在内网，内网地址可以直接连
+export interface ClientEnv {
+  intranet: boolean
+  clientIp: string
+  visitMode: number
+}
+
+export function getClientEnv() {
+  return get<ClientEnv>({
+    url: '/panel/env',
+  })
+}
 
 export function addMultiple<T>(req: Panel.ItemInfo[]) {
   return post<T>({

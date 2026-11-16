@@ -19,9 +19,10 @@ type ItemIcon struct {
 	ItemIconGroupId int                       `json:"itemIconGroupId"`
 	UserId          uint                      `json:"userId"`
 	User            User                      `json:"user"`
-	// 以下不落库，只在响应里告诉前端这张卡要不要打码
-	Private bool `gorm:"-" json:"private,omitempty"`
-	Masked  bool `gorm:"-" json:"masked,omitempty"`
+	// 以下不落库，只在响应里告诉前端这张卡要不要打码 / 要不要提示内网
+	Private       bool `gorm:"-" json:"private,omitempty"`
+	Masked        bool `gorm:"-" json:"masked,omitempty"`
+	NeedsIntranet bool `gorm:"-" json:"needsIntranet,omitempty"`
 }
 
 func (m *ItemIcon) DeleteByItemIconGroupIds(db *gorm.DB, userId uint, itemIconGroupIds []uint) (err error) {

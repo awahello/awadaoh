@@ -82,6 +82,19 @@ func IsPrivateURLWithDNS(raw string) bool {
 	return false
 }
 
+// IsPrivateIP 判定一个裸 IP 是不是内网 / 回环 / 保留地址。
+// 用来判「访问面板的人自己是不是在内网」——c.ClientIP() 直接丢进来即可。
+func IsPrivateIP(s string) bool {
+	s = strings.TrimSpace(strings.Trim(s, "[]"))
+	if s == "" {
+		return false
+	}
+	if v, ok := ipPrivate(s); ok {
+		return v
+	}
+	return false
+}
+
 // MaskURL 给访客看的地址：内网就返回空串（前端据此渲染 🔒 锁卡），否则原样返回。
 func MaskURL(raw string) (masked string, isPrivate bool) {
 	if IsPrivateURL(raw) {

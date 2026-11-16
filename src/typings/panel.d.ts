@@ -16,6 +16,7 @@ declare namespace Panel {
         // 服务端给访客打的码：url 已置空，前端渲染 🔒 锁卡
         private?: boolean
         masked?: boolean
+        needsIntranet?: boolean
     }
 
     interface ItemIconGroup extends Common.InfoBase {
