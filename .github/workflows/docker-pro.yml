@@ -62,6 +62,21 @@ jobs:
           ls -la pro/amd64 pro/arm64
           du -sh pro/web
 
+      - name: 架构闸门（两个架构的二进制不能是同一个文件）
+        run: |
+          set -euo pipefail
+          echo "--- 真实架构 ---"
+          python3 tools/elfarch.py pro/amd64/awadaoh --expect amd64
+          python3 tools/elfarch.py pro/arm64/awadaoh --expect arm64
+          A=$(sha256sum pro/amd64/awadaoh | cut -d' ' -f1)
+          B=$(sha256sum pro/arm64/awadaoh | cut -d' ' -f1)
+          echo "amd64: $A"
+          echo "arm64: $B"
+          if [ "$A" = "$B" ]; then
+            echo "::error::两个架构的二进制完全相同，说明 arm64 物料是 amd64 冒充的"
+            exit 1
+          fi
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
@@ -94,5 +109,22 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # 故意不用 type=gha 缓存。
+          # 上一版就是这里出的问题：amd64 与 arm64 两个 platform 共用一份 gha 缓存，
+          # 推出来的镜像里 linux/arm64 那一层的 digest 和 amd64 完全相同
+          # （sha256:a11a92c5…），也就是 arm64 镜像里躺着 amd64 二进制。
+          # 这个镜像总共就 build 一两分钟，去掉缓存换「架构不会串」值得。
+          no-cache: true
+
+      - name: 校验已推送镜像内二进制的真实架构
+        run: |
+          set -euo pipefail
+          TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -1)
+          echo "校验镜像: $TAG"
+          for ARCH in amd64 arm64; do
+            docker pull --platform "linux/${ARCH}" "$TAG"
+            docker create --platform "linux/${ARCH}" --name "chk-${ARCH}" "$TAG"
+            docker cp "chk-${ARCH}:/app/awadaoh" "/tmp/awadaoh-${ARCH}"
+            docker rm "chk-${ARCH}" >/dev/null
+            python3 tools/elfarch.py "/tmp/awadaoh-${ARCH}" --expect "$ARCH"
+          done

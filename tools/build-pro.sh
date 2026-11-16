@@ -32,10 +32,33 @@ echo "==> 输出目录: $OUT"
 rm -rf "$OUT"
 mkdir -p "$OUT"
 
+# 期望架构：显式 ARCH 优先，否则从输出目录名猜（pro/arm64 -> arm64）。
+# 猜不到就不校验，只打印。
+EXPECT="${ARCH:-$(basename "$OUT")}"
+case "$EXPECT" in
+  amd64|arm64) ;;
+  *) EXPECT="" ;;
+esac
+
 echo "==> 复制二进制与前端"
 cp "$BIN" "$OUT/awadaoh"
 chmod +x "$OUT/awadaoh"
 cp -r "$SRC/web" "$OUT/web"
+
+# 这一行是整个脚本里最重要的一行。
+# buildx 打 linux/arm64 标签时不会检查 COPY 进去的文件是不是 arm64；
+# 上游 arm64 包若装错、或 pro/arm64 被上一次 amd64 构建污染，
+# 以前会一路绿灯推出镜像，等用户 docker compose up 才 exec format error。
+echo "==> 校验二进制真实架构（期望 ${EXPECT:-未知}）"
+if ! "$PY" "$ROOT/tools/elfarch.py" "$OUT/awadaoh" ${EXPECT:+--expect "$EXPECT"}; then
+  echo
+  echo "构建中止：$OUT/awadaoh 的 ELF 架构与目标不符。"
+  echo "来源包: $SRC"
+  echo "先确认来源包对不对："
+  echo "  python3 tools/elfarch.py $BIN"
+  exit 1
+fi
+echo "==> 二进制 sha256: $(sha256sum "$OUT/awadaoh" | cut -d' ' -f1)"
 
 echo "==> 后端补丁: ProIsExpired -> 恒 false"
 "$PY" "$ROOT/tools/patch-pro.py" "$OUT/awadaoh"
@@ -72,12 +95,14 @@ fi
 echo "==> 复核"
 "$PY" "$ROOT/tools/patch-pro.py" "$OUT/awadaoh" --check
 "$PY" "$ROOT/tools/web-inject.py" "$OUT/web" --check
+# 打完补丁再核一次：补丁脚本若改错文件会当场炸掉
+"$PY" "$ROOT/tools/elfarch.py" "$OUT/awadaoh" ${EXPECT:+--expect "$EXPECT"}
 
 SIZE=$(du -h "$OUT/awadaoh" | cut -f1)
 cat <<EOF
 
 完成。
-  后端 $OUT/awadaoh  ($SIZE)
+  后端 $OUT/awadaoh  ($SIZE, ${EXPECT:-arch?})
   前端 $OUT/web
 
 构建镜像：

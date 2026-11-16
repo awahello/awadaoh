@@ -34,6 +34,7 @@ UP_NAME="sun-panel_${TAG}_linux_${ARCH}.tar.gz"
 
 mkdir -p "$OUT"
 TARBALL="$(mktemp -d)/pkg.tar.gz"
+URL_USED=""
 
 try_get() {
   local label="$1" url="$2"
@@ -41,6 +42,7 @@ try_get() {
   if curl -fsSL --retry 3 --retry-delay 2 --retry-all-errors \
       --max-time 300 -o "$TARBALL" "$url"; then
     echo "==> 命中 ${label}"
+    URL_USED="$url"
     return 0
   fi
   echo "==> 未命中（跳过）"
@@ -90,5 +92,21 @@ if [ ! -f "$OUT/awadaoh" ] && [ -f "$OUT/sun-panel" ]; then
   mv "$OUT/sun-panel" "$OUT/awadaoh"
 fi
 chmod +x "$OUT/awadaoh"
+
+# 包名写着 arm64 不代表里面的二进制是 arm64。
+# 这里当场核一次 ELF 头，把「来源包装错架构」挡在构建之外，
+# 而不是等镜像推上去、用户 docker compose up 才 exec format error。
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+PY="${PYTHON:-python3}"
+echo "==> 校验包内二进制架构（期望 ${ARCH}）"
+if ! "$PY" "$ROOT/tools/elfarch.py" "$OUT/awadaoh" --expect "$ARCH"; then
+  echo
+  echo "来源包 $ARCH 里装的不是 $ARCH 二进制。"
+  echo "  包地址: ${URL_USED}"
+  echo "换一条路："
+  echo "  1) 把正确架构的包镜像到自己的 release：./tools/mirror-pro.sh ${TAG} <本地包>"
+  echo "  2) 或显式指定上游 tag：./tools/fetch-pro.sh ${ARCH} <别的 tag> ${OUT}"
+  exit 1
+fi
 
 echo "==> 就绪: $OUT/awadaoh   $OUT/web"

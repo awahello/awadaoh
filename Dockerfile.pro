@@ -13,8 +13,11 @@
 #   docker build -f Dockerfile.pro -t awadaoh:pro .
 FROM alpine:3.19
 
-# buildx 自动注入目标架构，用于挑选对应二进制
-ARG TARGETARCH=amd64
+# buildx 自动注入目标架构。故意不给默认值：
+# 万一没被注入（比如有人用老版本 docker build 且没开 BuildKit），
+# 宁可在这里报 "TARGETARCH 为空" 也不要默默按 amd64 打包，
+# 打出一个标签写着 arm64、里面躺着 amd64 二进制的镜像。
+ARG TARGETARCH
 
 LABEL org.opencontainers.image.title="Awadaoh" \
       org.opencontainers.image.description="自托管导航面板 / NAS 首页 / 浏览器起始页（PRO 全功能）" \
@@ -34,13 +37,32 @@ ENV TZ=Asia/Shanghai
 
 EXPOSE 3055
 
-RUN apk add --no-cache bash ca-certificates su-exec tzdata curl \
-    && chmod +x ./awadaoh \
-    && (./awadaoh -config || true) \
-    && ( [ -f /app/conf/conf.ini ] \
-         && sed -i 's/^[[:space:]]*http_port.*/http_port=3055/' /app/conf/conf.ini \
-         || printf '[base]\nhttp_port=3055\n' > /app/conf/conf.ini ) \
-    && grep -q '^http_port=3055' /app/conf/conf.ini
+# 架构守卫 + 运行期准备。
+# 这个 RUN 是本 Dockerfile 唯一能真正「跑起来」二进制的机会，所以先把 ELF 头核了：
+#   e_machine 偏移 18 两个字节，小端：amd64=3e00  arm64=b700
+# 对不上就直接 fail build。没有这一步，buildx 会开开心心把错架构的文件打成
+# linux/arm64 镜像，用户 pull 下来才 exec format error（就是这次的故障）。
+RUN set -eu; \
+    case "${TARGETARCH:-}" in \
+      amd64) want=3e00 ;; \
+      arm64) want=b700 ;; \
+      "") echo "!! TARGETARCH 未注入，无法确定该装哪个二进制"; exit 1 ;; \
+      *) echo "!! 不支持的 TARGETARCH=${TARGETARCH}"; exit 1 ;; \
+    esac; \
+    got="$(od -An -tx1 -j18 -N2 /app/awadaoh | tr -d ' \n')"; \
+    echo "架构守卫: TARGETARCH=${TARGETARCH} ELF e_machine=${got} 期望=${want}"; \
+    if [ "$got" != "$want" ]; then \
+      echo "!! /app/awadaoh 架构不符：这个镜像打出来必然 exec format error"; \
+      echo "!! 检查 pro/${TARGETARCH}/awadaoh 的来源包，用 python3 tools/elfarch.py 复核"; \
+      exit 1; \
+    fi; \
+    apk add --no-cache bash ca-certificates su-exec tzdata curl; \
+    chmod +x ./awadaoh; \
+    (./awadaoh -config || true); \
+    ( [ -f /app/conf/conf.ini ] \
+        && sed -i 's/^[[:space:]]*http_port.*/http_port=3055/' /app/conf/conf.ini \
+        || printf '[base]\nhttp_port=3055\n' > /app/conf/conf.ini ); \
+    grep -q '^http_port=3055' /app/conf/conf.ini
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
     CMD curl -fsS http://127.0.0.1:3055/ || exit 1
