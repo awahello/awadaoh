@@ -89,7 +89,7 @@ func (a FrontLockApi) Save(c *gin.Context) {
 		return
 	}
 
-	if err := global.SystemSetting.Set(systemSetting.FrontLockSetting s); err != nil {
+	if err := global.SystemSetting.Set(systemSetting.PANEL_FRONT_LOCK, s); err != nil {
 		apiReturn.ErrorDatabase(c, err.Error())
 		return
 	}
