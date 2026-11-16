@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""AKKdaoh · PRO 授权解锁补丁
+"""Awadaoh · PRO 授权解锁补丁
 
 作用对象：官方 sun-panel PRO 版 Linux 二进制（release tar.gz 里的 sun-panel）。
 原理：

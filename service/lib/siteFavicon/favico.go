@@ -11,7 +11,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"akkdaoh/lib/cmn"
+	"awadaoh/lib/cmn"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"

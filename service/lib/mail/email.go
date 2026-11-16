@@ -1,8 +1,8 @@
 package mail
 
 import (
-	"akkdaoh/global"
-	"akkdaoh/models"
+	"awadaoh/global"
+	"awadaoh/models"
 
 	"gopkg.in/gomail.v2"
 )

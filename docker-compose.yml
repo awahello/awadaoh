@@ -1,14 +1,14 @@
 services:
-  akkdaoh:
-    image: ghcr.io/awahello/akkdaoh:latest
-    container_name: akkdaoh
+  awadaoh:
+    image: ghcr.io/awahello/awadaoh:latest
+    container_name: awadaoh
     volumes:
       - ./conf:/app/conf
       - ./uploads:/app/uploads
       - ./database:/app/database
       # - ./runtime:/app/runtime
     ports:
-      - 3002:3002
+      - 3055:3055
     environment:
       - TZ=Asia/Shanghai
     restart: unless-stopped

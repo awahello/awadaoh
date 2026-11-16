@@ -83,7 +83,7 @@ export function exportJson(appVersion?: string): ExportJsonResult {
         const blob = new Blob([jsonString], { type: 'application/json' })
         const link = document.createElement('a')
         link.href = URL.createObjectURL(blob)
-        link.download = `SunPanel-Data${moment().format('YYYYMMDDHHmm')}.akkdaoh.json`
+        link.download = `SunPanel-Data${moment().format('YYYYMMDDHHmm')}.awadaoh.json`
         link.click()
       }
     },

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-AKKdaoh Nav · 极简自托管导航站
+Awadaoh Nav · 极简自托管导航站
 
 一个文件的后端，只用标准库：
   - 前台 /        打开就是导航，不需要登录
@@ -9,12 +9,12 @@ AKKdaoh Nav · 极简自托管导航站
   - 数据 config.json，随手备份
 
 运行：
-    python3 server.py                 # 默认 0.0.0.0:8080
+    python3 server.py                 # 默认 0.0.0.0:3055
     PORT=3000 python3 server.py
     DATA_DIR=/data python3 server.py
 
 环境变量：
-    PORT       监听端口，默认 8080
+    PORT       监听端口，默认 3055
     HOST       监听地址，默认 0.0.0.0
     DATA_DIR   数据目录，默认 ./data
     ADMIN_PASS 后台密码，默认 admin123（首次启动写入 config）
@@ -25,14 +25,22 @@ AKKdaoh Nav · 极简自托管导航站
     "Bookmarks" JSON 文件里（Google 同步只是把这个文件改掉）。
     所以监听这个文件的 mtime/hash，一变就重新解析并入 config，就等价于
     "和 Google 书签自动同步"，不需要任何 Google API / OAuth。
+
+内网地址保护：
+    导入/保存时按 host 判内网（私有 IP 段、*.lan/*.local、单标签主机名、file://），
+    打上 private 标记。/api/config 对未登录访客把 private 站点的 url 置空
+    （privateMode=mask）或整条不下发（hide）；带有效 token 才给真实地址。
+    这样挂到公网也不会把内网拓扑贴出去。
 """
 
 import base64
 import hashlib
+import ipaddress
 import json
 import os
 import re
 import secrets
+import socket
 import sys
 import threading
 import time
@@ -61,7 +69,7 @@ def new_id(prefix="i"):
 
 def default_config():
     return {
-        "title": "AKK 导航",
+        "title": "Awadaoh 导航",
         "subtitle": "自托管起始页",
         "footer": "www.akkdiy.cn",
         "footerUrl": "https://www.akkdiy.cn",
@@ -77,6 +85,10 @@ def default_config():
         ],
         "password": DEFAULT_PASS,
         "theme": "dark",
+        # 内网地址处理：mask=前台打码 / hide=前台完全不下发 / show=原样显示
+        "privateMode": "mask",
+        # 域名解析复查（公司内网域名 → 10.x 这种），默认关，开了导入会慢
+        "privateDns": False,
         # 书签自动同步（监听 Chrome/Edge 的 Bookmarks JSON 文件）
         "sync": {
             "enabled": os.environ.get("BOOKMARK_FILE") not in (None, ""),
@@ -129,6 +141,12 @@ def load_config():
     for k, v in base.items():
         if k not in cfg:
             cfg[k] = v
+    # 老数据没有 private 字段，每次读都重算一遍（纯字符串判断，176 个站点耗时可忽略）
+    dns = bool(cfg.get("privateDns"))
+    for g in cfg.get("groups") or []:
+        for s in g.get("sites") or []:
+            if "private" not in s or dns:
+                s["private"] = is_private_url(str(s.get("url") or ""), dns=dns)
     return cfg
 
 
@@ -140,10 +158,67 @@ def save_config(cfg):
     os.replace(tmp, CONFIG_PATH)
 
 
-def public_config(cfg):
-    """对外输出：不泄漏密码"""
+HIDDEN_DESC = "内网地址，已隐藏"
+
+
+def mask_site(site):
+    """把内网站点的地址抹掉，只留标题和标记。"""
+    out = dict(site)
+    out["url"] = ""
+    out["desc"] = HIDDEN_DESC
+    out["icon"] = ""
+    out["masked"] = True
+    return out
+
+
+def public_config(cfg, authed=False):
+    """对外输出。
+
+    authed=False（未登录访客）：password 去掉，内网地址按 privateMode 处理
+        mask → 卡片还在，url 空、desc 写「内网地址，已隐藏」
+        hide → 这些站点整条不下发
+        show → 原样（自己内网部署才该用）
+    authed=True（后台已登录）：完整配置，内网地址照给
+    """
+    mode = str(cfg.get("privateMode") or "mask")
+    if mode not in ("mask", "hide", "show"):
+        mode = "mask"
+
     out = dict(cfg)
     out.pop("password", None)
+
+    groups, masked, dropped = [], 0, 0
+    for g in cfg.get("groups") or []:
+        gg = dict(g)
+        sites = []
+        for s in g.get("sites") or []:
+            priv = bool(s.get("private"))
+            if not priv or authed or mode == "show":
+                sites.append(dict(s))
+            elif mode == "hide":
+                dropped += 1
+            else:
+                sites.append(mask_site(s))
+                masked += 1
+        gg["sites"] = sites
+        gg["privateCount"] = sum(1 for s in (g.get("sites") or []) if s.get("private"))
+        groups.append(gg)
+    out["groups"] = groups
+    out["privateMode"] = mode
+    out["privateMasked"] = masked
+    out["privateDropped"] = dropped
+    out["privateTotal"] = sum(1 for g in (cfg.get("groups") or [])
+                              for s in (g.get("sites") or []) if s.get("private"))
+
+    # 同步配置里有本机路径，访客不该看到
+    if not authed:
+        s = dict(cfg.get("sync") or {})
+        out["sync"] = {
+            "enabled": bool(s.get("enabled")),
+            "interval": int(s.get("interval") or 300),
+            "mode": s.get("mode") or "merge",
+            "lastSync": int(s.get("lastSync") or 0),
+        }
     return out
 
 
@@ -233,6 +308,129 @@ ROOT_NAMES = {
 }
 
 
+# ─────────────────── 内网 / 外网 地址识别 ───────────────────
+#
+# 目的：书签里混着路由器、NAS、公司 OA 这类只有在你家/公司网络里才通的地址。
+# 一旦导航站挂到公网，这些地址等于把你内网拓扑贴出去。
+# 所以导入/保存时先判一遍，标记 private=True，前台默认不下发真实地址。
+
+# 一定算内网的域名后缀（不含点，取最后一段比较）
+PRIVATE_TLDS = {
+    "local", "localhost", "lan", "internal", "intranet", "intra",
+    "corp", "home", "localdomain", "svc", "cluster", "priv", "private",
+}
+
+_DNS_CACHE = {}
+_DNS_LOCK = threading.Lock()
+
+
+def _host_of(url):
+    try:
+        h = urlparse(url).hostname or ""
+    except Exception:
+        h = ""
+    return (h or "").strip().strip(".").lower()
+
+
+def _ip_private(ip):
+    try:
+        a = ipaddress.ip_address(ip)
+    except Exception:
+        return None
+    if a.is_loopback or a.is_private or a.is_link_local or a.is_reserved:
+        return True
+    if a.is_unspecified or a.is_multicast:
+        return True
+    if a.version == 4:
+        # 运营商级 NAT 100.64.0.0/10，和 0.0.0.0/8，标准库的判断各版本不一致，自己补
+        if a in ipaddress.ip_network("100.64.0.0/10"):
+            return True
+        if int(a) >> 24 == 0:
+            return True
+    # IPv4 映射的 IPv6（::ffff:10.0.0.1）交给对端判断
+    if a.version == 6 and a.ipv4_mapped:
+        return _ip_private(str(a.ipv4_mapped))
+    return False
+
+
+def _dns_private(host, timeout=0.6):
+    """域名看着像公网，但可能解析到内网（公司内网域名）。带缓存，失败就当公网。"""
+    with _DNS_LOCK:
+        if host in _DNS_CACHE:
+            return _DNS_CACHE[host]
+    ans = False
+    old = socket.getdefaulttimeout()
+    try:
+        socket.setdefaulttimeout(timeout)
+        for info in socket.getaddrinfo(host, None):
+            ip = info[4][0]
+            if _ip_private(ip):
+                ans = True
+                break
+    except Exception:
+        ans = False
+    finally:
+        socket.setdefaulttimeout(old)
+    with _DNS_LOCK:
+        _DNS_CACHE[host] = ans
+    return ans
+
+
+def is_private_url(url, dns=False):
+    """判断一个地址是否属于内网 / 本机 / 保留地址。
+
+    判定顺序（快 → 慢，任一命中就 True）：
+      1. 空协议或者 file: / ftp 到本机
+      2. hostname 是 IP 字面量 → 私有段 / 回环 / 链路本地 / 保留段
+      3. hostname 是 localhost 或 .local / .lan / .internal 等后缀
+      4. hostname 没有点（单标签，如 http://nas/）→ 内网
+      5. 可选：DNS 解析后复查（默认关，避免批量导入时被 DNS 拖死）
+    """
+    low = str(url or "").strip().lower()
+    if not low:
+        return False
+    # 本机 / 局域网共享协议，天生只能内网访问
+    if low.startswith(("file://", "smb://", "\\\\")):
+        return True
+
+    h = _host_of(low)
+    if not h:
+        return False
+
+    v = _ip_private(h)
+    if v is not None:
+        return v
+
+    if h in ("localhost", "localhost.localdomain", "ip6-localhost"):
+        return True
+    if "." not in h:
+        return True          # http://nas/ 、http://router/
+    last = h.rsplit(".", 1)[-1]
+    if last in PRIVATE_TLDS:
+        return True
+    if h.endswith(".home.arpa") or h.endswith(".in-addr.arpa"):
+        return True
+    if dns and _dns_private(h):
+        return True
+    return False
+
+
+def mark_site_private(site):
+    """给一个站点字典打上 private 标记，返回是否内网。"""
+    p = is_private_url(str(site.get("url") or ""))
+    site["private"] = bool(p)
+    return p
+
+
+def mark_groups_private(groups):
+    n = 0
+    for g in groups or []:
+        for s in g.get("sites") or []:
+            if mark_site_private(s):
+                n += 1
+    return n
+
+
 def _mk_site(title, url, desc=""):
     host = ""
     try:
@@ -245,6 +443,7 @@ def _mk_site(title, url, desc=""):
         "url": url,
         "desc": (host or desc or "")[:200],
         "icon": (LAZY_ICON % host) if host else "",
+        "private": is_private_url(url),
     }
 
 
@@ -496,6 +695,8 @@ def sync_once(force=False, path_override=None):
         SYNC_STATE["lastSync"] = sync["lastSync"]
         SYNC_STATE["lastResult"] = sync["lastResult"]
         return {"ok": True, "path": p, "groupsCount": n_g, "sitesCount": n_s,
+                "privateCount": sum(1 for g in cfg["groups"]
+                                    for s in (g.get("sites") or []) if s.get("private")),
                 "syncedGroups": len(incoming), "skipped": False}
 
 
@@ -549,7 +750,7 @@ def token_ok(t):
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "AKKdaohNav/1.0"
+    server_version = "AwadaohNav/1.0"
     protocol_version = "HTTP/1.1"
 
     # ── 工具 ──
@@ -615,12 +816,15 @@ class Handler(BaseHTTPRequestHandler):
             return self._static("admin.html")
 
         if p == "/api/config":
-            return self._json({"ok": True, "config": public_config(load_config())})
+            # 带有效 token 就拿完整配置（含内网地址），否则内网地址打码/隐藏
+            return self._json({"ok": True, "config": public_config(load_config(), authed=self._auth())})
         if p == "/api/health":
             return self._json({"ok": True, "time": int(time.time())})
         if p == "/api/auth":
             return self._json({"ok": self._auth()})
         if p == "/api/sync":
+            if not self._auth():
+                return self._err("未登录", 401)
             cfg = load_config()
             s = dict(cfg.get("sync") or {})
             path = resolve_bookmark_path(cfg)
@@ -685,7 +889,7 @@ class Handler(BaseHTTPRequestHandler):
             cfg["sync"] = sync
             save_config(cfg)
             res = sync_once(force=True, path_override=sync.get("path") or None)
-            res["config"] = public_config(load_config())
+            res["config"] = public_config(load_config(), authed=True)
             return self._json(res)
 
         if p == "/api/sync/test":
@@ -712,6 +916,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._json({"ok": True, "resolvedPath": path,
                                "groupsCount": len(groups),
                                "sitesCount": sum(len(g["sites"]) for g in groups),
+                               "privateCount": sum(1 for g in groups
+                                                   for s in g["sites"] if s.get("private")),
                                "names": [g["name"] for g in groups][:40]})
 
         return self._err("not found", 404)
@@ -731,6 +937,12 @@ class Handler(BaseHTTPRequestHandler):
         for k in ("title", "subtitle", "footer", "footerUrl", "searchEngine", "theme", "engine"):
             if k in data and isinstance(data[k], str):
                 cfg[k] = data[k][:200]
+
+        if data.get("privateMode") in ("mask", "hide", "show"):
+            cfg["privateMode"] = data["privateMode"]
+        if "privateDns" in data:
+            cfg["privateDns"] = bool(data["privateDns"])
+        dns = bool(cfg.get("privateDns"))
 
         if isinstance(data.get("engines"), list):
             engs = []
@@ -761,18 +973,22 @@ class Handler(BaseHTTPRequestHandler):
                 for s in (g.get("sites") or [])[:500]:
                     if not isinstance(s, dict) or not s.get("url"):
                         continue
+                    u = str(s.get("url"))[:2000]
                     sites.append({
                         "id": s.get("id") or new_id("s"),
                         "title": str(s.get("title") or "")[:80],
-                        "url": str(s.get("url"))[:2000],
+                        "url": u,
                         "desc": str(s.get("desc") or "")[:200],
                         "icon": str(s.get("icon") or "")[:500],
+                        # 每次保存都重算，改了地址立刻跟上
+                        "private": is_private_url(u, dns=dns),
                     })
                 clean.append({
                     "id": g.get("id") or new_id("g"),
                     "name": str(g.get("name") or "未命名")[:40],
                     "icon": str(g.get("icon") or "")[:8],
                     "hidden": bool(g.get("hidden")),
+                    "source": str(g.get("source") or "")[:12],
                     "sites": sites,
                 })
             cfg["groups"] = clean
@@ -797,7 +1013,7 @@ class Handler(BaseHTTPRequestHandler):
             cfg["password"] = np[:64]
 
         save_config(cfg)
-        return self._json({"ok": True, "config": public_config(cfg)})
+        return self._json({"ok": True, "config": public_config(cfg, authed=True)})
 
     def log_message(self, fmt, *args):
         sys.stderr.write("[%s] %s\n" % (self.log_date_time_string(), fmt % args))
@@ -805,7 +1021,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def main():
     host = os.environ.get("HOST", "0.0.0.0")
-    port = int(os.environ.get("PORT", "8080"))
+    port = int(os.environ.get("PORT", "3055"))
     os.makedirs(DATA_DIR, exist_ok=True)
     cfg = load_config()
 
@@ -817,15 +1033,20 @@ def main():
 
     sync = cfg.get("sync") or {}
     resolved = resolve_bookmark_path(cfg)
+    n_priv = sum(1 for g in (cfg.get("groups") or [])
+                 for s in (g.get("sites") or []) if s.get("private"))
+    mode_label = {"mask": "打码", "hide": "不显示", "show": "正常显示"}.get(
+        str(cfg.get("privateMode") or "mask"), "打码")
 
     print("=" * 56)
-    print("  AKKdaoh Nav")
+    print("  Awadaoh Nav")
     print("  前台  http://%s:%d/" % ("127.0.0.1" if host == "0.0.0.0" else host, port))
     print("  后台  http://%s:%d/admin" % ("127.0.0.1" if host == "0.0.0.0" else host, port))
     print("  密码  %s" % cfg.get("password"))
     print("  数据  %s" % CONFIG_PATH)
     print("  同步  %s  %s" % ("开启" if sync.get("enabled") else "关闭",
                              resolved or "(未找到 Bookmarks 文件)"))
+    print("  内网  %d 个地址，访客视图 %s" % (n_priv, mode_label))
     print("=" * 56)
     try:
         srv.serve_forever()

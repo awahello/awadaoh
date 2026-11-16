@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-AKKdaoh · 官方 web 包视觉注入
+Awadaoh · 官方 web 包视觉注入
 
 作用：
   1. 把 assets/theme/nav-theme.css 放进 web 根，并在 index.html </head> 前插入
-     <link rel="stylesheet" href="/akkdaoh-theme.css">，保证排在官方 CSS 之后。
+     <link rel="stylesheet" href="/awadaoh-theme.css">，保证排在官方 CSS 之后。
   2. 用本项目的 logo / favicon 覆盖官方同名文件。
   3. 清掉 index.html 里残留的上游标题注释。
 
@@ -24,16 +24,16 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 THEME_SRC = os.path.join(ROOT, "assets", "theme", "nav-theme.css")
-THEME_NAME = "akkdaoh-theme.css"
+THEME_NAME = "awadaoh-theme.css"
 LINK_TAG = '<link rel="stylesheet" href="/%s">' % THEME_NAME
 CATNAV_SRC = os.path.join(ROOT, "assets", "theme", "catnav.js")
 CATNAV_REL = os.path.join("custom", "index.js")
 
 # 官方 index.html 中需要就地替换的上游痕迹
 HTML_REPLACEMENTS = [
-    ("<!-- <title>Sun-Panel</title> -->", "<!-- AKKdaoh -->"),
-    ("<title>Sun-Panel</title>", "<title>AKKdaoh</title>"),
-    ("Sun-Panel", "AKKdaoh"),  # 兜底：任何残留的可见文案
+    ("<!-- <title>Sun-Panel</title> -->", "<!-- Awadaoh -->"),
+    ("<title>Sun-Panel</title>", "<title>Awadaoh</title>"),
+    ("Sun-Panel", "Awadaoh"),  # 兜底：任何残留的可见文案
 ]
 
 # 用本项目资源覆盖官方同名文件

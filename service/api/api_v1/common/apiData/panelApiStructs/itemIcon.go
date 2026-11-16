@@ -1,8 +1,8 @@
 package panelApiStructs
 
 import (
-	"akkdaoh/api/api_v1/common/apiData/commonApiStructs"
-	"akkdaoh/models"
+	"awadaoh/api/api_v1/common/apiData/commonApiStructs"
+	"awadaoh/models"
 )
 
 type ItemIconEditRequest struct {

@@ -3,7 +3,7 @@ import { computed, watch } from 'vue'
 import { darkTheme, useOsTheme } from 'naive-ui'
 import { useAppStore } from '@/store'
 
-// ── AKKdaoh 品牌色板 ───────────────────────────────────────────────
+// ── Awadaoh 品牌色板 ───────────────────────────────────────────────
 const BRAND = {
   primary: '#5B6CFF',
   primaryHover: '#7C8AFF',

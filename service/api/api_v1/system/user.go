@@ -1,12 +1,12 @@
 package system
 
 import (
-	"akkdaoh/api/api_v1/common/apiData/systemApiStructs"
-	"akkdaoh/api/api_v1/common/apiReturn"
-	"akkdaoh/api/api_v1/common/base"
-	"akkdaoh/global"
-	"akkdaoh/lib/cmn"
-	"akkdaoh/models"
+	"awadaoh/api/api_v1/common/apiData/systemApiStructs"
+	"awadaoh/api/api_v1/common/apiReturn"
+	"awadaoh/api/api_v1/common/base"
+	"awadaoh/global"
+	"awadaoh/lib/cmn"
+	"awadaoh/models"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"

@@ -1,9 +1,9 @@
 package middleware
 
 import (
-	"akkdaoh/api/api_v1/common/apiReturn"
-	"akkdaoh/global"
-	"akkdaoh/models"
+	"awadaoh/api/api_v1/common/apiReturn"
+	"awadaoh/global"
+	"awadaoh/models"
 
 	"github.com/gin-gonic/gin"
 )

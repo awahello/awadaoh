@@ -1,8 +1,8 @@
 package system
 
 import (
-	"akkdaoh/api/api_v1/common/apiReturn"
-	"akkdaoh/lib/cmn"
+	"awadaoh/api/api_v1/common/apiReturn"
+	"awadaoh/lib/cmn"
 
 	"github.com/gin-gonic/gin"
 )

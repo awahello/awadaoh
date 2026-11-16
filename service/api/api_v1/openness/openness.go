@@ -1,9 +1,9 @@
 package openness
 
 import (
-	"akkdaoh/api/api_v1/common/apiReturn"
-	"akkdaoh/global"
-	"akkdaoh/lib/cmn/systemSetting"
+	"awadaoh/api/api_v1/common/apiReturn"
+	"awadaoh/global"
+	"awadaoh/lib/cmn/systemSetting"
 
 	"github.com/gin-gonic/gin"
 )

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""AKKdaoh · 前端 PRO 标识解锁补丁
+"""Awadaoh · 前端 PRO 标识解锁补丁
 
 官方 PRO 版前端在 micro-app 宿主里这样算 isPro：
 

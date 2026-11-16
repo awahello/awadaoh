@@ -2,9 +2,9 @@ package lang
 
 import (
 	"os"
-	"akkdaoh/global"
-	"akkdaoh/lib/cmn"
-	"akkdaoh/lib/language"
+	"awadaoh/global"
+	"awadaoh/lib/cmn"
+	"awadaoh/lib/language"
 )
 
 func LangInit(lang string) {

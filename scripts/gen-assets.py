@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""AKKdaoh 图标生成器：无第三方依赖，输出 SVG / PNG / ICO。
+"""Awadaoh 图标生成器：无第三方依赖，输出 SVG / PNG / ICO。
 
 用法: python scripts/gen-assets.py
 产物: src/assets/logo.svg, public/favicon.svg, public/favicon-black.svg,

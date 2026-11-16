@@ -256,7 +256,7 @@ async function handleStartImport() {
     <div class="flex justify-center m-[50px]">
       <div class="m-[10px]">
         <NUpload
-          accept=".akkdaoh.json,.sunpanel.json"
+          accept=".awadaoh.json,.sunpanel.json"
           directory-dnd
           :default-upload="false"
           :show-file-list="false"
@@ -281,7 +281,7 @@ async function handleStartImport() {
     </div>
 
     <div class="flex justify-center">
-      <a href="https://awahello.github.io/akkdaoh-tool-page/#/" target="_blank">{{ $t('apps.exportImport.transmuteStandard') }}</a>
+      <a href="https://awahello.github.io/awadaoh-tool-page/#/" target="_blank">{{ $t('apps.exportImport.transmuteStandard') }}</a>
     </div>
 
     <!-- 调试模式 -->

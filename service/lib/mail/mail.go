@@ -1,7 +1,7 @@
 package mail
 
 import (
-	"akkdaoh/global"
+	"awadaoh/global"
 )
 
 // 发送注册验证码

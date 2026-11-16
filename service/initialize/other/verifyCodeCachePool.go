@@ -1,8 +1,8 @@
 package other
 
 import (
-	"akkdaoh/global"
-	"akkdaoh/lib/cache"
+	"awadaoh/global"
+	"awadaoh/lib/cache"
 	"time"
 )
 

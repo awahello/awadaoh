@@ -3,8 +3,8 @@ package language
 import (
 	"os"
 	"strings"
-	"akkdaoh/lib/cmn"
-	"akkdaoh/lib/iniConfig"
+	"awadaoh/lib/cmn"
+	"awadaoh/lib/iniConfig"
 )
 
 type LangStructObj struct {

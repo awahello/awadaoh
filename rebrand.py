@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""AKKdaoh 品牌替换：把上游 akkdaoh 的标识替换成本项目标识。
+"""Awadaoh 品牌替换：把上游 awadaoh 的标识替换成本项目标识。
 跳过 LICENSE（MIT 要求保留原版权声明）。"""
 import os
 import sys
@@ -14,13 +14,13 @@ SKIP_DIRS = {".git", "node_modules", "dist", ".github"}
 
 RULES = [
     # 长的先替换，避免被短规则截断
-    ("awahello.github.io/akkdaoh-tool-page", "awahello.github.io/akkdaoh-tool-page"),
-    ("awahello/akkdaoh", "awahello/akkdaoh"),
-    ("awahello/akkdaoh", "awahello/akkdaoh"),
-    ("pro.akkdaoh.local", "pro.akkdaoh.local"),
-    ("akkdaoh.local/doc", "akkdaoh.local/doc"),
+    ("awahello.github.io/awadaoh-tool-page", "awahello.github.io/awadaoh-tool-page"),
+    ("awahello/awadaoh", "awahello/awadaoh"),
+    ("awahello/awadaoh", "awahello/awadaoh"),
+    ("pro.awadaoh.local", "pro.awadaoh.local"),
+    ("awadaoh.local/doc", "awadaoh.local/doc"),
     ("Akkdaoh", "Akkdaoh"),
-    ("akkdaoh", "akkdaoh"),
+    ("awadaoh", "awadaoh"),
 ]
 
 

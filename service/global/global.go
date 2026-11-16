@@ -1,12 +1,12 @@
 package global
 
 import (
-	"akkdaoh/initialize/database"
-	"akkdaoh/lib/cache"
-	"akkdaoh/lib/cmn/systemSetting"
-	"akkdaoh/lib/iniConfig"
-	"akkdaoh/lib/language"
-	"akkdaoh/models"
+	"awadaoh/initialize/database"
+	"awadaoh/lib/cache"
+	"awadaoh/lib/cmn/systemSetting"
+	"awadaoh/lib/iniConfig"
+	"awadaoh/lib/language"
+	"awadaoh/models"
 
 	redis "github.com/redis/go-redis/v9"
 	"go.uber.org/zap"

@@ -1,9 +1,9 @@
 package userToken
 
 import (
-	"akkdaoh/global"
-	"akkdaoh/lib/cache"
-	"akkdaoh/models"
+	"awadaoh/global"
+	"awadaoh/lib/cache"
+	"awadaoh/models"
 
 	"time"
 )

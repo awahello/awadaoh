@@ -1,8 +1,8 @@
 package panel
 
 import (
-	"akkdaoh/api/api_v1"
-	"akkdaoh/api/api_v1/middleware"
+	"awadaoh/api/api_v1"
+	"awadaoh/api/api_v1/middleware"
 
 	"github.com/gin-gonic/gin"
 )

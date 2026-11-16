@@ -15,8 +15,8 @@ dist-ssr/
 .vite/
 
 # 后端运行产物
-service/akkdaoh
-service/akkdaoh.exe
+service/awadaoh
+service/awadaoh.exe
 service/assets/bindata.go
 service/database.db
 service/conf/

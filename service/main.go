@@ -2,9 +2,9 @@ package main
 
 import (
 	"log"
-	"akkdaoh/global"
-	"akkdaoh/initialize"
-	"akkdaoh/router"
+	"awadaoh/global"
+	"awadaoh/initialize"
+	"awadaoh/router"
 )
 
 func main() {

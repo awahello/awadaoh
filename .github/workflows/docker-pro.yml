@@ -2,8 +2,8 @@ name: build-pro
 
 # 构建 PRO 全功能镜像：
 #   后端 = 上游 release 二进制 + ProIsExpired 恒 false 补丁
-#   前端 = 上游同版本 web 包 + isPro 解锁 + AKKdaoh 导航站主题注入
-# 产出：ghcr.io/<owner>/akkdaoh:latest（linux/amd64 + linux/arm64）
+#   前端 = 上游同版本 web 包 + isPro 解锁 + Awadaoh 导航站主题注入
+# 产出：ghcr.io/<owner>/awadaoh:latest（linux/amd64 + linux/arm64）
 
 on:
   push:

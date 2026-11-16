@@ -1,7 +1,7 @@
 package models
 
 import (
-	"akkdaoh/models/datatype"
+	"awadaoh/models/datatype"
 
 	"gorm.io/gorm"
 )

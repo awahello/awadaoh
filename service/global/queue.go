@@ -1,10 +1,10 @@
 package global
 
 import (
-	"akkdaoh/lib/queue"
-	"akkdaoh/lib/queue/queueMemory"
-	"akkdaoh/lib/queue/queueRedis"
-	"akkdaoh/structs"
+	"awadaoh/lib/queue"
+	"awadaoh/lib/queue/queueMemory"
+	"awadaoh/lib/queue/queueRedis"
+	"awadaoh/structs"
 )
 
 // 缓存驱动

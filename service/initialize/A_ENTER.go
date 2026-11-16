@@ -4,19 +4,19 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"akkdaoh/global"
-	"akkdaoh/initialize/cUserToken"
-	"akkdaoh/initialize/config"
-	"akkdaoh/initialize/database"
-	"akkdaoh/initialize/lang"
-	"akkdaoh/initialize/other"
-	"akkdaoh/initialize/redis"
-	"akkdaoh/initialize/runlog"
-	"akkdaoh/initialize/systemSettingCache"
-	"akkdaoh/initialize/userToken"
-	"akkdaoh/lib/cmn"
-	"akkdaoh/models"
-	"akkdaoh/structs"
+	"awadaoh/global"
+	"awadaoh/initialize/cUserToken"
+	"awadaoh/initialize/config"
+	"awadaoh/initialize/database"
+	"awadaoh/initialize/lang"
+	"awadaoh/initialize/other"
+	"awadaoh/initialize/redis"
+	"awadaoh/initialize/runlog"
+	"awadaoh/initialize/systemSettingCache"
+	"awadaoh/initialize/userToken"
+	"awadaoh/lib/cmn"
+	"awadaoh/models"
+	"awadaoh/structs"
 	"time"
 
 	"log"
@@ -191,6 +191,6 @@ func Logo() {
 	versionInfo := cmn.GetSysVersionInfo()
 	fmt.Println("Version:", versionInfo.Version)
 	fmt.Println("Welcome to the Akkdaoh.")
-	fmt.Println("Project address:", "https://github.com/awahello/akkdaoh")
+	fmt.Println("Project address:", "https://github.com/awahello/awadaoh")
 
 }

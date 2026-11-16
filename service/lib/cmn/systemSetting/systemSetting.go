@@ -3,8 +3,8 @@ package systemSetting
 import (
 	"encoding/json"
 	"errors"
-	"akkdaoh/lib/cache"
-	"akkdaoh/models"
+	"awadaoh/lib/cache"
+	"awadaoh/models"
 
 	"gorm.io/gorm"
 )

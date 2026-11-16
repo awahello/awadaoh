@@ -55,21 +55,21 @@ tar xzf sun-panel_vX_linux_arm64.tar.gz
 ./tools/build-pro.sh ./sun-panel_vX_linux_arm64
 
 # 3. 构建镜像
-docker build -f Dockerfile.pro -t awahello/akkdaoh-pro:latest .
+docker build -f Dockerfile.pro -t awahello/awadaoh-pro:latest .
 
 # 4. 跑起来
-docker run -d --name akkdaoh-pro -p 3002:3002 \
+docker run -d --name awadaoh-pro -p 3055:3055 \
   -v $(pwd)/conf:/app/conf \
   -v $(pwd)/uploads:/app/uploads \
   -v $(pwd)/database:/app/database \
-  awahello/akkdaoh-pro:latest
+  awahello/awadaoh-pro:latest
 ```
 
 单独验证 / 回滚：
 
 ```bash
-python tools/patch-pro.py ./pro/akkdaoh --check    # 已打补丁返回 0
-python tools/patch-pro.py ./pro/akkdaoh --revert   # 从 .orig 还原
+python tools/patch-pro.py ./pro/awadaoh --check    # 已打补丁返回 0
+python tools/patch-pro.py ./pro/awadaoh --revert   # 从 .orig 还原
 ```
 
 ## 版本适配

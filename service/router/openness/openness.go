@@ -1,7 +1,7 @@
 package openness
 
 import (
-	"akkdaoh/api/api_v1"
+	"awadaoh/api/api_v1"
 
 	"github.com/gin-gonic/gin"
 )

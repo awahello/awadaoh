@@ -4,7 +4,7 @@
 
 首个版本。
 
-- 品牌与工程标识全面更换：`akkdaoh`
+- 品牌与工程标识全面更换：`awadaoh`
 - 新增导航站风格视觉层（`src/styles/global.less`）：分组标题主色竖条、图标卡 76px 圆角方块与悬停浮起、胶囊搜索框、自定义滚动条
 - 主色板改为靛蓝 `#5B6CFF` + 青绿 `#22D3C5`，深浅色主题统一由 `src/hooks/useTheme.ts` 覆盖
 - 新增品牌图标生成器 `scripts/gen-assets.py`（SVG / PNG / ICO 全部本地生成，无外部依赖）

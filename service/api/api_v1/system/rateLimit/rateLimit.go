@@ -2,7 +2,7 @@ package rateLimit
 
 import (
 	"errors"
-	"akkdaoh/global"
+	"awadaoh/global"
 )
 
 const (

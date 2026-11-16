@@ -1,8 +1,8 @@
 package global
 
 import (
-	"akkdaoh/lib/cache"
-	"akkdaoh/structs"
+	"awadaoh/lib/cache"
+	"awadaoh/structs"
 	"time"
 )
 

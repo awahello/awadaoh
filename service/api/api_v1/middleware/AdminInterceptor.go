@@ -4,8 +4,8 @@ import (
 	// "calendar-note-gin/api/v1/common/apiReturn"
 	// . "calendar-note-gin/api/v1/common/base"
 
-	"akkdaoh/api/api_v1/common/apiReturn"
-	"akkdaoh/api/api_v1/common/base"
+	"awadaoh/api/api_v1/common/apiReturn"
+	"awadaoh/api/api_v1/common/base"
 
 	"github.com/gin-gonic/gin"
 )

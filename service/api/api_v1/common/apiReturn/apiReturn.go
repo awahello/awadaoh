@@ -1,7 +1,7 @@
 package apiReturn
 
 import (
-	"akkdaoh/global"
+	"awadaoh/global"
 
 	"github.com/gin-gonic/gin"
 )

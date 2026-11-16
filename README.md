@@ -1,14 +1,14 @@
 <div align="center">
 
-<img src="./public/logo.png" width="96" height="96" alt="AKKdaoh" />
+<img src="./public/logo.png" width="96" height="96" alt="Awadaoh" />
 
-# AKKdaoh
+# Awadaoh
 
 **自托管导航面板 / NAS 首页 / 浏览器起始页**
 
 一个可以自己部署、自己掌控的网址导航站：分组管理图标、内置搜索、系统监控、Docker 容器管理、多用户与访客模式。
 
-<img src="./doc/preview.png" alt="AKKdaoh 界面预览" width="100%" />
+<img src="./doc/preview.png" alt="Awadaoh 界面预览" width="100%" />
 
 </div>
 
@@ -35,6 +35,7 @@
 - **直接导入 Chrome 书签**：导出的 `bookmarks.html` 拖进去，或者直接选浏览器 profile 里的 `Bookmarks`（JSON）
 - **和 Google 书签自动同步**：盯着本地 `Bookmarks` 文件，收藏夹一变自动重导（见下）
 - **个别分类可以隐藏**：后台点眼睛，前台不显示，配置里仍然保留
+- **内网地址不外泄**：书签里的 `192.168.*` / `10.*` / `*.lan` 自动识别成内网，访客看到的是打码卡片，地址不下发（见下）
 - **设置全在后台**：`/admin`，密码进去改标题、页脚、分组、站点、搜索引擎
 - 页脚默认显示 `www.akkdiy.cn`
 
@@ -50,8 +51,8 @@
 ```bash
 cd nav
 mkdir -p data
-PORT=8080 python server.py
-# 前台 http://IP:8080/      后台 http://IP:8080/admin
+PORT=3055 python server.py
+# 前台 http://IP:3055/      后台 http://IP:3055/admin
 ```
 
 ### 或者 Docker
@@ -59,7 +60,7 @@ PORT=8080 python server.py
 ```bash
 cd nav
 ADMIN_PASS='admin123' docker compose up -d
-# 前台 http://IP:8080/      后台 http://IP:8080/admin
+# 前台 http://IP:3055/      后台 http://IP:3055/admin
 ```
 
 镜像自带健康检查，数据落在 `nav/data/config.json`，备份就是拷这一个文件。
@@ -96,6 +97,34 @@ environment:
 
 后台「🗂 分组」每一行右边的眼睛：点一下变 `🙈`，这个分类在前台（含左侧分类栏、搜索、页脚统计）就都不出现，但配置还在，再点一下就回来。
 
+### 内网地址自动识别，不外泄
+
+书签里难免混着只有你家 / 公司网络才通的地址。一旦导航站挂到公网，这些地址等于把内网拓扑贴出去。所以导入和每次保存时都会自动判一遍：
+
+| 判为内网 | 例子 |
+|---|---|
+| 私有 IPv4 段 | `10.*`、`172.16-31.*`、`192.168.*`、`127.*`、`169.254.*`、`100.64-127.*`、`0.*` |
+| 私有 / 链路本地 IPv6 | `::1`、`fd00::/8`、`fe80::/10` |
+| 内网域名后缀 | `*.local`、`*.lan`、`*.internal`、`*.intranet`、`*.corp`、`*.home`、`localhost` |
+| 单标签主机名 | `http://nas/`、`http://router:8080` |
+| 本机协议 | `file://`、`smb://` |
+
+后台「⚙ 基本设置 → 内网地址保护」有三种处理：
+
+| 模式 | 访客看到 |
+|---|---|
+| `打码`（默认） | 卡片还在，位置和标题保留，**地址不下发**，图标位置显示 🔒 |
+| `不显示` | 这些站点整条不出现在 `/api/config` 里 |
+| `正常显示` | 原样输出，仅在纯内网部署时用 |
+
+判定是在服务端做的：`/api/config` 对**未登录访客**直接把这些站点的 `url` 置空、`desc` 换成「内网地址，已隐藏」；只有带有效 token 的请求才拿得到真实地址。所以不是前端藏一下，抓包也看不到。
+
+自己怎么用？在同一个浏览器里登录过一次后台（token 会写进 `localStorage`），再打开首页就是完整视图，内网链接照点。退出登录就回到打码状态。
+
+<img src="./nav/doc/admin-private.png" alt="内网地址标记" width="100%" />
+
+`域名解析复查` 打开后会额外查一次 DNS，把「域名看着像公网、其实解析到内网 IP」的情况也抓出来（比如公司内网域名），代价是导入时会慢一点，默认关。
+
 ---
 
 ## 默认账号
@@ -126,15 +155,15 @@ environment:
 
 ```yaml
 services:
-  akkdaoh:
-    image: ghcr.io/awahello/akkdaoh:latest
-    container_name: akkdaoh
+  awadaoh:
+    image: ghcr.io/awahello/awadaoh:latest
+    container_name: awadaoh
     volumes:
       - ./conf:/app/conf
       - ./uploads:/app/uploads
       - ./database:/app/database
     ports:
-      - 3002:3002
+      - 3055:3055
     environment:
       - TZ=Asia/Shanghai
     restart: unless-stopped
@@ -142,21 +171,21 @@ services:
 
 ```bash
 docker compose up -d
-# 打开 http://服务器IP:3002
+# 打开 http://服务器IP:3055
 # 默认账号 admin / 密码 admin
 ```
 
 ### docker run
 
 ```bash
-docker run -d --name akkdaoh \
-  -p 3002:3002 \
+docker run -d --name awadaoh \
+  -p 3055:3055 \
   -e TZ=Asia/Shanghai \
   -v $(pwd)/conf:/app/conf \
   -v $(pwd)/uploads:/app/uploads \
   -v $(pwd)/database:/app/database \
   --restart unless-stopped \
-  ghcr.io/awahello/akkdaoh:latest
+  ghcr.io/awahello/awadaoh:latest
 ```
 
 ### 自己构建镜像
@@ -174,19 +203,19 @@ python -m pip install --upgrade pip   # 仅需标准库，无需额外依赖
 ./tools/build-pro.sh rel-arm64 pro/arm64
 
 # 3) 构建镜像
-docker build -f Dockerfile.pro -t awahello/akkdaoh:latest .
+docker build -f Dockerfile.pro -t awahello/awadaoh:latest .
 
 # 4) 多架构推送
 ./tools/build-pro.sh rel-amd64 pro/amd64
 docker buildx build --platform linux/amd64,linux/arm64 \
-  -f Dockerfile.pro -t awahello/akkdaoh:latest --push .
+  -f Dockerfile.pro -t awahello/awadaoh:latest --push .
 ```
 
 推送 tag 到仓库后，`.github/workflows/docker-pro.yml` 会自动完成上面全部步骤，
-把 `ghcr.io/awahello/akkdaoh:latest` 推成 amd64 + arm64 双架构。
+把 `ghcr.io/awahello/awadaoh:latest` 推成 amd64 + arm64 双架构。
 
 补丁原理与全部 13 个调用点见 [doc/PRO.md](./doc/PRO.md)；纯源码社区版可用
-`docker build -t akkdaoh:oss .`（不含 PRO 功能）。
+`docker build -t awadaoh:oss .`（不含 PRO 功能）。
 
 ## 目录约定
 
@@ -196,7 +225,7 @@ docker buildx build --platform linux/amd64,linux/arm64 \
 | `/app/database` | SQLite 数据文件 |
 | `/app/uploads` | 用户上传的图标、背景图 |
 | `/app/web` | 前端静态资源（镜像内已打包） |
-| `/app/akkdaoh` | 后端可执行文件 |
+| `/app/awadaoh` | 后端可执行文件 |
 
 ## 从 Chrome 书签导入
 
@@ -212,7 +241,7 @@ python tools/bookmarks2sunpanel.py bookmarks.html --icon favicon
 
 | 项 | 默认 |
 |---|---|
-| 监听端口 | `3002` |
+| 监听端口 | `3055` |
 | 配置文件 | `/app/conf/conf.ini` |
 | 数据库 | SQLite `database.db` |
 | 时区 | `Asia/Shanghai` |
@@ -222,7 +251,7 @@ python tools/bookmarks2sunpanel.py bookmarks.html --icon favicon
 镜像内置：
 
 ```
-HEALTHCHECK CMD curl -fsS http://127.0.0.1:3002/ || exit 1
+HEALTHCHECK CMD curl -fsS http://127.0.0.1:3055/ || exit 1
 ```
 
 ## 开发

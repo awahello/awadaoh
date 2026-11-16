@@ -2,10 +2,10 @@ package panel
 
 import (
 	"encoding/json"
-	"akkdaoh/api/api_v1/common/apiReturn"
-	"akkdaoh/api/api_v1/common/base"
-	"akkdaoh/global"
-	"akkdaoh/models"
+	"awadaoh/api/api_v1/common/apiReturn"
+	"awadaoh/api/api_v1/common/base"
+	"awadaoh/global"
+	"awadaoh/models"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"

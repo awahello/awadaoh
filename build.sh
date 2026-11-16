@@ -41,7 +41,7 @@ buildBackEndAssets() {
 # buildBinary() {
 #   cd $REPO/service
 #   # mv "${REPO}/dist" "${REPO}/web"
-#   go build -o "akkdaoh" --ldflags="-X akkdaoh/global.RUNCODE=release" main.go
+#   go build -o "awadaoh" --ldflags="-X awadaoh/global.RUNCODE=release" main.go
 # }
 
 _build() {
@@ -62,14 +62,14 @@ _build() {
   pathRelease=$REPO/release
 
   if [ -n "$VERSION" ]; then
-    outPath="akkdaoh_${VERSION}_${os}_${arch}"
+    outPath="awadaoh_${VERSION}_${os}_${arch}"
   elif [ -n "$LATEST_TAG" ]; then
-    outPath="akkdaoh_${LATEST_TAG}_${os}_${arch}"
+    outPath="awadaoh_${LATEST_TAG}_${os}_${arch}"
   else
-    outPath="akkdaoh_${COMMIT_SHA}_${os}_${arch}"
+    outPath="awadaoh_${COMMIT_SHA}_${os}_${arch}"
   fi
-  outname="${pathRelease}/${outPath}/akkdaoh"
-  go build -o "${outname}" --ldflags="-X akkdaoh/global.RUNCODE=release" main.go
+  outname="${pathRelease}/${outPath}/awadaoh"
+  go build -o "${outname}" --ldflags="-X awadaoh/global.RUNCODE=release" main.go
 
   cd $pathRelease
   # copy front file
@@ -77,10 +77,10 @@ _build() {
 
   echo "Release ${outPath}"
   if [ "$os" = "windows" ]; then
-    mv $outname $outPath/akkdaoh.exe
+    mv $outname $outPath/awadaoh.exe
     zip -r "${pathRelease}/${outPath}.zip" $outPath
   else
-    mv $outname $outPath/akkdaoh
+    mv $outname $outPath/awadaoh
     tar -zcvf "${pathRelease}/${outPath}.tar.gz" $outPath
   fi
   rm -rf "${pathRelease}/${outPath}"
@@ -89,7 +89,7 @@ _build() {
 # 定义函数BuildReleaseLinuxMusl，用于构建正式版Linux-musl平台的二进制文件(参考Alist构建方案)
 buildReleaseLinuxMusl() {
   cd $REPO/service
-  ldflags="-X akkdaoh/global.RUNCODE=release"
+  ldflags="-X awadaoh/global.RUNCODE=release"
   pathRelease=$REPO/release
   # 清理.git目录，创建build目录，并下载交叉编译工具
   # rm -rf .git/
@@ -122,14 +122,14 @@ buildReleaseLinuxMusl() {
     export CGO_ENABLED=1
 
     if [ -n "$VERSION" ]; then
-      outPath="akkdaoh_${VERSION}_${GOOS}_musl_${GOARCH}"
+      outPath="awadaoh_${VERSION}_${GOOS}_musl_${GOARCH}"
     elif [ -n "$LATEST_TAG" ]; then
-      outPath="akkdaoh_${LATEST_TAG}_${GOOS}_musl_${GOARCH}"
+      outPath="awadaoh_${LATEST_TAG}_${GOOS}_musl_${GOARCH}"
     else
-      outPath="akkdaoh_${COMMIT_SHA}_${GOOS}_musl_${GOARCH}"
+      outPath="awadaoh_${COMMIT_SHA}_${GOOS}_musl_${GOARCH}"
     fi
 
-    outname="${pathRelease}/${outPath}/akkdaoh"
+    outname="${pathRelease}/${outPath}/awadaoh"
 
     go build -o "${outname}" -ldflags="$muslflags" main.go
     # go build -o "${outname}" -ldflags="$muslflags" -tags=jsoniter main.go
@@ -141,7 +141,7 @@ buildReleaseLinuxMusl() {
 
   echo "Release ${outPath}"
 
-  mv $outname $outPath/akkdaoh
+  mv $outname $outPath/awadaoh
   tar -zcvf "${pathRelease}/${outPath}.tar.gz" $outPath
   
   rm -rf "${pathRelease}/${outPath}"

@@ -1,7 +1,7 @@
 package captcha
 
 import (
-	"akkdaoh/global"
+	"awadaoh/global"
 
 	"github.com/gin-gonic/gin"
 	"github.com/mojocn/base64Captcha"

@@ -1,10 +1,10 @@
 package system
 
 import (
-	"akkdaoh/api/api_v1/common/apiData/systemApiStructs"
-	"akkdaoh/api/api_v1/common/apiReturn"
-	"akkdaoh/global"
-	"akkdaoh/lib/monitor"
+	"awadaoh/api/api_v1/common/apiData/systemApiStructs"
+	"awadaoh/api/api_v1/common/apiReturn"
+	"awadaoh/global"
+	"awadaoh/lib/monitor"
 	"time"
 
 	"github.com/gin-gonic/gin"

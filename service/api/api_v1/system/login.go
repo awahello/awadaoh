@@ -3,12 +3,12 @@ package system
 import (
 	"strconv"
 	"strings"
-	"akkdaoh/api/api_v1/common/apiReturn"
-	"akkdaoh/api/api_v1/common/base"
-	"akkdaoh/global"
-	"akkdaoh/lib/cmn"
-	"akkdaoh/lib/cmn/systemSetting"
-	"akkdaoh/models"
+	"awadaoh/api/api_v1/common/apiReturn"
+	"awadaoh/api/api_v1/common/base"
+	"awadaoh/global"
+	"awadaoh/lib/cmn"
+	"awadaoh/lib/cmn/systemSetting"
+	"awadaoh/models"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"

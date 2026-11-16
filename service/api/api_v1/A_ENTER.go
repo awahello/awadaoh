@@ -1,9 +1,9 @@
 package api_v1
 
 import (
-	"akkdaoh/api/api_v1/openness"
-	"akkdaoh/api/api_v1/panel"
-	"akkdaoh/api/api_v1/system"
+	"awadaoh/api/api_v1/openness"
+	"awadaoh/api/api_v1/panel"
+	"awadaoh/api/api_v1/system"
 )
 
 type ApiGroup struct {

@@ -2,8 +2,8 @@ package runlog
 
 import (
 	"os"
-	"akkdaoh/global"
-	"akkdaoh/lib/cmn"
+	"awadaoh/global"
+	"awadaoh/lib/cmn"
 
 	"go.uber.org/zap"
 )

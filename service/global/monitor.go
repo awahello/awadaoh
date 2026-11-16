@@ -1,7 +1,7 @@
 package global
 
 import (
-	"akkdaoh/lib/monitor"
+	"awadaoh/lib/monitor"
 )
 
 const (

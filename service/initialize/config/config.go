@@ -2,9 +2,9 @@ package config
 
 import (
 	"os"
-	"akkdaoh/global"
-	"akkdaoh/lib/cmn"
-	"akkdaoh/lib/iniConfig"
+	"awadaoh/global"
+	"awadaoh/lib/cmn"
+	"awadaoh/lib/iniConfig"
 )
 
 func getDefaultConfig() map[string]map[string]string {

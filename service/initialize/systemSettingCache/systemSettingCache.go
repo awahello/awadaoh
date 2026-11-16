@@ -1,8 +1,8 @@
 package systemSettingCache
 
 import (
-	"akkdaoh/global"
-	"akkdaoh/lib/cmn/systemSetting"
+	"awadaoh/global"
+	"awadaoh/lib/cmn/systemSetting"
 	"time"
 )
 

@@ -2,7 +2,7 @@ package global
 
 import (
 	"strconv"
-	"akkdaoh/lib/cache"
+	"awadaoh/lib/cache"
 )
 
 type RateLimiter struct {

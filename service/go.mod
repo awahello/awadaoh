@@ -1,4 +1,4 @@
-module akkdaoh
+module awadaoh
 
 go 1.20
 

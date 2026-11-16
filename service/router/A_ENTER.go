@@ -1,11 +1,11 @@
 package router
 
 import (
-	"akkdaoh/global"
-	// "akkdaoh/router/admin"
-	"akkdaoh/router/openness"
-	"akkdaoh/router/panel"
-	"akkdaoh/router/system"
+	"awadaoh/global"
+	// "awadaoh/router/admin"
+	"awadaoh/router/openness"
+	"awadaoh/router/panel"
+	"awadaoh/router/system"
 
 	"github.com/gin-gonic/gin"
 )

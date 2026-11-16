@@ -4,12 +4,12 @@ services:
     build:
       context: .
     # 想直接用现成镜像就注掉上面 build，打开下面这行
-    # （CI 会发到 ghcr.io/<你的用户名>/akkdaoh-nav:latest，首次用记得把包设为 public）
-    # image: ghcr.io/awahello/akkdaoh-nav:latest
-    container_name: akkdaoh-nav
+    # （CI 会发到 ghcr.io/<你的用户名>/awadaoh-nav:latest，首次用记得把包设为 public）
+    # image: ghcr.io/awahello/awadaoh-nav:latest
+    container_name: awadaoh-nav
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "3055:3055"
     environment:
       TZ: Asia/Shanghai
       ADMIN_PASS: "admin123"

@@ -449,6 +449,52 @@
 		word-break: break-word;
 	}
 
+	/* 内网地址被打码的卡片 */
+	.site.is-locked {
+		cursor: default;
+		background: var(--panel);
+		border: 1px dashed var(--line-strong);
+		box-shadow: none;
+	}
+
+	.site.is-locked:hover {
+		transform: none;
+		border-color: var(--line-strong);
+		box-shadow: none;
+		background: var(--panel);
+	}
+
+	.site.is-locked .site-ico {
+		background: transparent;
+		border: 1px dashed var(--line-strong);
+		color: var(--text-3);
+		font-size: 18px;
+	}
+
+	.site.is-locked .site-name {
+		color: var(--text-3);
+	}
+
+	.site-lock {
+		position: absolute;
+		top: 7px;
+		right: 8px;
+		font-size: 10px;
+		opacity: 0.75;
+	}
+
+	.pv-note {
+		display: inline-flex;
+		align-items: center;
+		gap: 5px;
+		margin-left: 8px;
+		padding: 1px 8px;
+		border-radius: 999px;
+		border: 1px solid var(--line-strong);
+		color: var(--text-3);
+		font-size: 11px;
+	}
+
 	.foot {
 		padding: 16px 32px 24px;
 		border-top: 1px solid var(--line);
@@ -806,17 +852,28 @@
 				+ '<div class="grid">';
 
 			g.sites.forEach(function (s) {
-				var icon = iconFor(s);
+				var locked = (s.masked || (s.private && !s.url)) ? true : false;
+				var icon = locked ? '' : iconFor(s);
 				var h = hue(s.title || s.url);
-				var inner = icon
-					? '<img src="' + esc(icon) + '" alt="" loading="lazy" referrerpolicy="no-referrer"'
-						+ ' onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'grid\'">'
-						+ '<span class="letter" style="display:none;background:hsl(' + h + ',62%,48%)">'
-						+ esc((s.title || '?').trim().charAt(0).toUpperCase()) + '</span>'
-					: '<span class="letter" style="background:hsl(' + h + ',62%,48%)">'
-						+ esc((s.title || '?').trim().charAt(0).toUpperCase()) + '</span>';
+				var inner = locked
+					? '<span class="letter" style="background:transparent;color:var(--text-3)">🔒</span>'
+					: (icon
+						? '<img src="' + esc(icon) + '" alt="" loading="lazy" referrerpolicy="no-referrer"'
+							+ ' onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'grid\'">'
+							+ '<span class="letter" style="display:none;background:hsl(' + h + ',62%,48%)">'
+							+ esc((s.title || '?').trim().charAt(0).toUpperCase()) + '</span>'
+						: '<span class="letter" style="background:hsl(' + h + ',62%,48%)">'
+							+ esc((s.title || '?').trim().charAt(0).toUpperCase()) + '</span>');
 
-				if (!firstMatch) firstMatch = s.url;
+				if (!locked && !firstMatch) firstMatch = s.url;
+
+				if (locked) {
+					html += '<span class="site is-locked" title="' + esc((s.title || '') + '\n内网地址已隐藏') + '">'
+						+ '<span class="site-ico">' + inner + '</span>'
+						+ '<span class="site-name">' + esc(s.title || '内网服务') + '</span>'
+						+ '</span>';
+					return;
+				}
 
 				html += '<a class="site" href="' + esc(s.url) + '" target="_blank" rel="noopener"'
 					+ ' title="' + esc((s.title || '') + '\n' + (s.url || '') + (s.desc ? '\n' + s.desc : '')) + '">'
@@ -837,7 +894,10 @@
 		document.title = (CFG.title || '导航') + (CFG.subtitle ? ' · ' + CFG.subtitle : '');
 		$('#footLink').textContent = CFG.footer || 'www.akkdiy.cn';
 		$('#footLink').href = CFG.footerUrl || ('https://' + (CFG.footer || 'www.akkdiy.cn'));
-		$('#footMeta').textContent = shownGroups().length + ' 个分类 · ' + totalSites() + ' 个站点';
+		$('#footMeta').textContent = shownGroups().length + ' 个分类 · ' + totalSites() + ' 个站点'
+			+ (((CFG.privateMasked || 0) + (CFG.privateDropped || 0))
+				? ' · ' + ((CFG.privateMasked || 0) + (CFG.privateDropped || 0)) + ' 个内网地址已隐藏'
+				: '');
 		$('#statText').textContent = totalSites() + ' 个站点';
 		renderCats();
 		renderSites();
@@ -862,15 +922,14 @@
 			var all = [];
 			shownGroups().forEach(function (g) {
 				(g.sites || []).forEach(function (s) {
-					if (matchSite(s)) all.push(s);
+					if (s.url && matchSite(s)) all.push(s);
 				});
 			});
 			if (all.length) {
 				window.open(all[0].url, '_blank', 'noopener');
 			} else {
 				searchWith(q);
-			}
-		} else if (e.key === 'Escape') {
+			}		} else if (e.key === 'Escape') {
 			input.value = '';
 			q = '';
 			renderSites();
@@ -907,11 +966,31 @@
 		if (saved) applyTheme(saved);
 	} catch (e) {}
 
-	fetch('/api/config', { cache: 'no-store' })
-		.then(function (r) { return r.json(); })
-		.then(function (d) {
-			if (!d.ok) throw new Error('bad');
-			CFG = d.config;
+	/* 后台登录过的话（浏览器里存了 token），首页就拿完整配置，内网地址也能点 */
+	function authHeaders() {
+		var t = '';
+		try { t = localStorage.getItem('ak-nav-token') || ''; } catch (e) {}
+		return t ? { 'Authorization': 'Bearer ' + t } : {};
+	}
+
+	function loadConfig() {
+		return fetch('/api/config', { cache: 'no-store', headers: authHeaders() })
+			.then(function (r) { return r.json(); })
+			.then(function (d) {
+				if (!d.ok) throw new Error('bad');
+				return d.config;
+			})
+			.catch(function () {
+				// 带了失效 token 被拒也走这里，退回未登录视图再试一次
+				return fetch('/api/config', { cache: 'no-store' })
+					.then(function (r) { return r.json(); })
+					.then(function (d) { if (!d.ok) throw new Error('bad'); return d.config; });
+			});
+	}
+
+	loadConfig()
+		.then(function (cfg) {
+			CFG = cfg;
 			if (CFG.theme && !localStorage.getItem('ak-nav-theme')) applyTheme(CFG.theme);
 			loadEngines();
 			renderAll();
