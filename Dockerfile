@@ -83,6 +83,11 @@ RUN set -eu; \
 # 放进 alpine 会直接 "not found"（缺 ld-linux-aarch64.so.1）。
 FROM debian:bookworm-slim
 
+# TARGETARCH 是 buildx 自动注入的 build arg，但**每个 stage 都要自己 ARG 一次**，
+# 上一个 stage 声明过的不会传下来。少了这一行，下面的架构守卫永远读到空值，
+# 一上来就 `!! TARGETARCH 未注入`（CI 里已经踩过）。
+ARG TARGETARCH
+
 LABEL org.opencontainers.image.title="Awadaoh" \
       org.opencontainers.image.description="自托管导航面板 / NAS 首页（前后端源码构建）" \
       org.opencontainers.image.source="https://github.com/awahello/awadaoh"
