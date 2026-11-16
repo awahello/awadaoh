@@ -34,13 +34,24 @@ RUN npm run build \
 # sqlite 驱动是 mattn/go-sqlite3，必须 CGO。
 # 交叉编译要目标平台的原生 gcc，所以这里不能钉 --platform=$BUILDPLATFORM，
 # 交给 buildx + QEMU 逐平台构建（arm64 那趟会慢，但架构不会串）。
-FROM golang:1.21-alpine3.19 AS server_image
+#
+# 为什么是 bookworm（glibc）而不是 alpine（musl）：
+#   go-sqlite3 在 linux 上强制 -DHAVE_PWRITE64=1，sqlite3-binding.c 里的
+#     #define osPwrite64 ((ssize_t(*)(int,const void*,size_t,off64_t))aSyscall[13].pCurrent)
+#   直接用 off64_t。glibc 默认给这个类型，musl 要 _LARGEFILE64_SOURCE 才有 ——
+#   在 alpine 上就是一行 `error: expected ')' before 'aSyscall'` 加一堆
+#   `note: in expansion of macro 'osPwrite64'`，CI 里已经踩过一次。
+#   同一份代码在 ubuntu runner 上用 glibc 编译是通过的，所以直接跟 glibc 走，
+#   顺便把 CFLAGS 也补上，双保险。
+FROM golang:1.21-bookworm AS server_image
 
 ARG TARGETARCH
 
 WORKDIR /build
 
-RUN apk add --no-cache bash gcc git musl-dev
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends gcc libc6-dev ca-certificates git \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY ./service /build
 
@@ -57,7 +68,9 @@ RUN set -eu; \
     echo "== 拉依赖（单独一步，网络问题会在这里就暴露）=="; \
     go mod download; \
     echo "== 编译（CGO_ENABLED=1，mattn/go-sqlite3 要 cgo）=="; \
-    CGO_ENABLED=1 go build -trimpath \
+    CGO_ENABLED=1 \
+    CGO_CFLAGS="-D_LARGEFILE64_SOURCE -D_GNU_SOURCE -O2 -g" \
+    go build -trimpath \
       -ldflags="-s -w -X awadaoh/global.RUNCODE=release -X awadaoh/global.ISDOCKER=docker" \
       -o /build/awadaoh .; \
     ls -la /build/awadaoh; \
@@ -66,7 +79,9 @@ RUN set -eu; \
 
 
 # ── 运行 ─────────────────────────────────────────────────────────────────
-FROM alpine:3.19
+# 运行层也必须是 glibc：CGO 编出来的二进制动态链接 libc，
+# 放进 alpine 会直接 "not found"（缺 ld-linux-aarch64.so.1）。
+FROM debian:bookworm-slim
 
 LABEL org.opencontainers.image.title="Awadaoh" \
       org.opencontainers.image.description="自托管导航面板 / NAS 首页（前后端源码构建）" \
@@ -97,7 +112,9 @@ RUN set -eu; \
     if [ "$got" != "$want" ]; then \
       echo "!! /app/awadaoh 架构不符，这个镜像打出来必然 exec format error"; exit 1; \
     fi; \
-    apk add --no-cache bash ca-certificates su-exec tzdata curl; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends bash ca-certificates tzdata curl; \
+    rm -rf /var/lib/apt/lists/*; \
     chmod +x /app/awadaoh /app/docker-entrypoint.sh; \
     ls -la /app/web/index.html
 

@@ -39,6 +39,31 @@ def write_summary(text):
         print(f"[warn] 写 job summary 失败: {exc}", flush=True)
 
 
+def error_excerpt(data, limit=3000):
+    """从完整日志里挑出真正的报错行。
+
+    只截尾部是不够的：编译器报错前面往往有十几行 note，尾部窗口里只剩
+    `note: in expansion of macro ...`，看不出到底哪一行错了。这里按
+    error / Error / FAILED / undefined reference 抓关键行，再带上它前 2 行上下文。
+    """
+    lines = data.splitlines()
+    keys = ("error:", "Error:", "ERROR:", "FAILED:", "undefined reference", "cannot find", "No such file")
+    picked = []
+    seen = set()
+    for i, line in enumerate(lines):
+        if any(k in line for k in keys):
+            for j in range(max(0, i - 2), min(len(lines), i + 1)):
+                if j in seen:
+                    continue
+                seen.add(j)
+                picked.append(lines[j][:300])
+            if len(picked) > 60:
+                break
+    if not picked:
+        return ""
+    return "\n".join(picked)[:limit]
+
+
 def emit_annotation(tail, rc):
     # GitHub 的 workflow command 里 %、\r、\n 都要转义，否则整条消息被丢掉
     msg = tail.replace("%", "%25").replace("\r", "").replace("\n", "%0A")
@@ -49,23 +74,36 @@ def emit_annotation(tail, rc):
 def dump(reason, rc):
     """把日志尾部倒到 summary + annotation。任何异常都不许再往外抛。"""
     print(f"[fail] {reason} (exit={rc})", flush=True)
-    tail = ""
+    data = ""
     try:
         if os.path.isfile(LOG_PATH):
             with open(LOG_PATH, encoding="utf-8", errors="replace") as f:
-                tail = f.read()[-TAIL_SUMMARY:]
+                data = f.read()
     except Exception as exc:  # noqa: BLE001
         print(f"[warn] 读日志失败: {exc}", flush=True)
 
+    tail = data[-TAIL_SUMMARY:]
     if not tail:
         tail = f"(没有拿到 buildx 日志)\n原因: {reason}\n"
+
+    excerpt = error_excerpt(data)
 
     write_summary(
         "### 镜像构建失败\n\n"
         f"原因: {reason} (exit={rc})\n\n"
-        "```\n" + tail.replace("```", "'''") + "\n```\n"
+        "#### 报错行\n\n```\n" + (excerpt or "(没匹配到 error 行)").replace("```", "'''") + "\n```\n\n"
+        "#### 日志尾部\n\n```\n" + tail.replace("```", "'''") + "\n```\n"
     )
-    emit_annotation(tail[-TAIL_ANNOTATION:], rc)
+
+    # annotation 单条上限 4KB：优先放报错行，剩下的位置补尾部
+    body = excerpt
+    if body:
+        room = TAIL_ANNOTATION - len(body) - 40
+        if room > 200:
+            body = body + "\n\n---- 日志尾部 ----\n" + data[-room:]
+    else:
+        body = data[-TAIL_ANNOTATION:]
+    emit_annotation(body[:TAIL_ANNOTATION], rc)
 
 
 def main():
