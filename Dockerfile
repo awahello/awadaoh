@@ -42,7 +42,7 @@ FROM alpine:3.19
 
 LABEL org.opencontainers.image.title="AKKdaoh" \
       org.opencontainers.image.description="自托管导航面板 / NAS 首页" \
-      org.opencontainers.image.source="https://github.com/akkdiy/akkdaoh"
+      org.opencontainers.image.source="https://github.com/awahello/akkdaoh"
 
 WORKDIR /app
 

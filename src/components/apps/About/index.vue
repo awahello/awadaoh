@@ -29,11 +29,11 @@ onMounted(() => {
       </div>
       <div class="text-xl">
         <NGradientText type="info">
-          <a href="https://github.com/akkdiy/akkdaoh/releases" class="font-semibold" :title="$t('apps.about.viewUpdateLog')" target="_blank">v{{ versionName }}</a>
+          <a href="https://github.com/awahello/akkdaoh/releases" class="font-semibold" :title="$t('apps.about.viewUpdateLog')" target="_blank">v{{ versionName }}</a>
         </NGradientText>
       </div>
       <div class="mt-2">
-        <a href="https://github.com/akkdiy/akkdaoh/releases" target="_blank" class="link">{{ $t('apps.about.checkUpdate') }}</a>
+        <a href="https://github.com/awahello/akkdaoh/releases" target="_blank" class="link">{{ $t('apps.about.checkUpdate') }}</a>
       </div>
     </div>
 
@@ -43,10 +43,10 @@ onMounted(() => {
 
     <div class="flex flex-col items-center justify-center text-base">
       <div>
-        <a href="https://github.com/akkdiy/akkdaoh" target="_blank" class="link">github.com/akkdiy/akkdaoh</a>
+        <a href="https://github.com/awahello/akkdaoh" target="_blank" class="link">github.com/awahello/akkdaoh</a>
       </div>
       <div class="mt-1">
-        <a href="https://github.com/akkdiy/akkdaoh/issues" target="_blank" class="link">Issues</a>
+        <a href="https://github.com/awahello/akkdaoh/issues" target="_blank" class="link">Issues</a>
       </div>
       <div class="mt-5">
         <NTag :bordered="false" size="small">

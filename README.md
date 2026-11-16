@@ -30,7 +30,7 @@
 ```yaml
 services:
   akkdaoh:
-    image: akkdiy/akkdaoh:latest
+    image: awahello/akkdaoh:latest
     container_name: akkdaoh
     volumes:
       - ./conf:/app/conf
@@ -59,25 +59,25 @@ docker run -d --name akkdaoh \
   -v $(pwd)/uploads:/app/uploads \
   -v $(pwd)/database:/app/database \
   --restart unless-stopped \
-  akkdiy/akkdaoh:latest
+  awahello/akkdaoh:latest
 ```
 
 ### 自己构建镜像
 
 ```bash
-git clone https://github.com/akkdiy/akkdaoh.git
+git clone https://github.com/awahello/akkdaoh.git
 cd akkdaoh
-docker build -t akkdiy/akkdaoh:latest .
+docker build -t awahello/akkdaoh:latest .
 ```
 
 多架构（amd64 / arm64）：
 
 ```bash
 docker buildx build --platform linux/amd64,linux/arm64 \
-  -t akkdiy/akkdaoh:latest --push .
+  -t awahello/akkdaoh:latest --push .
 ```
 
-推送 tag 到仓库后，`.github/workflows/docker.yml` 会自动构建并推送到 `ghcr.io/akkdiy/akkdaoh`。
+推送 tag 到仓库后，`.github/workflows/docker.yml` 会自动构建并推送到 `ghcr.io/awahello/akkdaoh`。
 
 ## 目录约定
 

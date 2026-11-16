@@ -14,9 +14,9 @@ SKIP_DIRS = {".git", "node_modules", "dist", ".github"}
 
 RULES = [
     # 长的先替换，避免被短规则截断
-    ("akkdiy.github.io/akkdaoh-tool-page", "akkdiy.github.io/akkdaoh-tool-page"),
-    ("akkdiy/akkdaoh", "akkdiy/akkdaoh"),
-    ("akkdiy/akkdaoh", "akkdiy/akkdaoh"),
+    ("awahello.github.io/akkdaoh-tool-page", "awahello.github.io/akkdaoh-tool-page"),
+    ("awahello/akkdaoh", "awahello/akkdaoh"),
+    ("awahello/akkdaoh", "awahello/akkdaoh"),
     ("pro.akkdaoh.local", "pro.akkdaoh.local"),
     ("akkdaoh.local/doc", "akkdaoh.local/doc"),
     ("Akkdaoh", "Akkdaoh"),

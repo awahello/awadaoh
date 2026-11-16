@@ -281,7 +281,7 @@ async function handleStartImport() {
     </div>
 
     <div class="flex justify-center">
-      <a href="https://akkdiy.github.io/akkdaoh-tool-page/#/" target="_blank">{{ $t('apps.exportImport.transmuteStandard') }}</a>
+      <a href="https://awahello.github.io/akkdaoh-tool-page/#/" target="_blank">{{ $t('apps.exportImport.transmuteStandard') }}</a>
     </div>
 
     <!-- 调试模式 -->

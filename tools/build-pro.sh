@@ -8,7 +8,7 @@
 #
 # 用法：
 #   ./tools/build-pro.sh /path/to/sun-panel_vX_linux_arm64
-#   docker build -f Dockerfile.pro -t akkdiy/akkdaoh-pro:latest .
+#   docker build -f Dockerfile.pro -t awahello/akkdaoh-pro:latest .
 set -euo pipefail
 
 SRC="${1:-}"
@@ -45,4 +45,4 @@ echo "==> 校验"
 
 echo
 echo "完成。构建镜像："
-echo "  docker build -f Dockerfile.pro -t akkdiy/akkdaoh-pro:latest ."
+echo "  docker build -f Dockerfile.pro -t awahello/akkdaoh-pro:latest ."

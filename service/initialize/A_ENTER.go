@@ -191,6 +191,6 @@ func Logo() {
 	versionInfo := cmn.GetSysVersionInfo()
 	fmt.Println("Version:", versionInfo.Version)
 	fmt.Println("Welcome to the Akkdaoh.")
-	fmt.Println("Project address:", "https://github.com/akkdiy/akkdaoh")
+	fmt.Println("Project address:", "https://github.com/awahello/akkdaoh")
 
 }
