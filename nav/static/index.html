@@ -609,11 +609,22 @@
 		display: none;
 		place-items: center;
 		padding: 24px;
-		background: var(--bg);
+		/* 不直接用 var(--bg) 纯色：那样会把 body::before 的环境光盖掉，
+		   锁屏看着像另一套皮肤。这里把同样的两层径向渐变重画一遍。 */
+		background:
+			radial-gradient(900px 520px at 8% -12%, var(--bg-glow-a), transparent 62%),
+			radial-gradient(760px 480px at 102% 108%, var(--bg-glow-b), transparent 62%),
+			var(--bg);
 	}
 
 	.lock.show {
 		display: grid;
+		animation: lockIn 0.22s ease-out both;
+	}
+
+	@keyframes lockIn {
+		from { opacity: 0; }
+		to { opacity: 1; }
 	}
 
 	.lock-card {
@@ -1192,6 +1203,8 @@
 						try { localStorage.removeItem('ak-nav-front'); } catch (e) {}
 					}
 					if (CFG.theme && !localStorage.getItem('ak-nav-theme')) applyTheme(CFG.theme);
+					// 锁着也要给个正经标签页标题，别停在 HTML 里写死的「导航」
+					document.title = (CFG.title || '导航') + (CFG.subtitle ? ' · ' + CFG.subtitle : '');
 					showLock(CFG);
 					return;
 				}
