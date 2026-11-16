@@ -151,3 +151,31 @@ func NotFoundAndCreateUser(db *gorm.DB) error {
 
 	return nil
 }
+
+// 老库兼容：上游默认管理员用户名是 admin@sun.cc，我们改成了 admin。
+// 已经在跑的实例库里还留着旧名字，用户照着文档敲 admin 只会得到
+// 「账号或密码错误」，然后以为密码也不对（这就是「默认账号密码是错的」的由来）。
+// 这里做一次幂等改名：只在「旧名字存在」且「新名字还没被占用」时动手。
+func MigrateLegacyAdminUsername(db *gorm.DB) {
+	const (
+		legacy = "admin@sun.cc"
+		fixed  = "admin"
+	)
+
+	var n int64
+	if err := db.Model(&models.User{}).Where("username = ?", fixed).Count(&n).Error; err != nil || n > 0 {
+		return
+	}
+
+	old := models.User{}
+	if err := db.Where("username = ?", legacy).First(&old).Error; err != nil {
+		return
+	}
+
+	if err := db.Model(&models.User{}).Where("id = ?", old.ID).
+		Update("username", fixed).Error; err != nil {
+		log.Println("老库管理员改名失败:", err)
+		return
+	}
+	log.Printf("老库管理员用户名 %s -> %s（id=%d）", legacy, fixed, old.ID)
+}

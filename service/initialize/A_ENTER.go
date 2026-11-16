@@ -124,6 +124,9 @@ func DatabaseConnect() {
 	database.CreateDatabase(databaseDrive, global.Db)
 
 	database.NotFoundAndCreateUser(global.Db)
+
+	// 老库里的 admin@sun.cc 改成 admin，否则照文档登录永远是「账号或密码错误」
+	database.MigrateLegacyAdminUsername(global.Db)
 }
 
 // 命令行运行

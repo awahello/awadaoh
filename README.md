@@ -14,18 +14,51 @@
 
 ---
 
-## 两种形态，选一个用
+## 一个仓库，两种形态
 
-| | `nav/` 极简导航站 | `pro/` + `service/` 完整面板 |
+| | 完整面板（`service/` + `src/`） | 极简导航站（`nav/`） |
 |---|---|---|
-| 定位 | 打开就是导航页，后台改配置 | 带登录、系统监控、Docker 面板的完整面板 |
-| 依赖 | Python 3.8+ 或一个 15 MB 镜像 | Go 二进制 + 前端包 |
-| 上手 | `docker compose up -d`，30 秒 | 拉镜像 / 自己构建 |
-| 适合 | 只想要一个好看的自用起始页 | 想要 NAS 控制台那一套 |
+| 定位 | 分组图标 + 搜索 + 系统监控 + Docker 管理，带后台 | 打开就是导航页，后台只改配置 |
+| 技术 | Go 1.21 + Vue 3，**镜像里前后端都从本仓库源码构建** | Python 3.8+ / 15 MB 镜像 |
+| 前台 | 访客直接看到导航，没有登录墙 | 同 |
+| 装法 | `docker compose up -d`（拉 ghcr 镜像） | `cd nav && docker compose up -d` |
+| 适合 | 想要 NAS 控制台那一套 | 只想要一个好看的起始页 |
+
+两种形态共用同一套产品逻辑：**分类三态可见性**（公开 / 仅登录可见 / 隐藏）、**内网地址打码**（外网访客看不到 `192.168.*`，点开提示需要内网环境）、左侧分类 + 图标网格 + 搜索框。
+
+---
+
+## 完整面板：三条命令
 
 ```bash
 git clone https://github.com/awahello/awadaoh.git
 cd awadaoh
+docker compose up -d
+```
+
+打开 `http://<你的IP>:3055` —— **直接就是导航页，不是登录框**。
+
+后台在 `/login`，默认账号：
+
+| 账号 | 密码 |
+|---|---|
+| `admin` | `12345678` |
+
+> - 老版本装过的实例用户名是 `admin@sun.cc`，新版本启动时会自动改名为 `admin`。
+> - 忘了密码：`docker exec -it awadaoh /app/awadaoh -password-reset`，它会把第一个管理员的密码重置成默认值，并把用户名打出来。
+> - 访客模式默认就开：没配「公开访问账号」时后端自动用第一个管理员当访客身份，所以打开域名有内容；后台换一个访客账号后立即生效。
+
+镜像同时有 `linux/amd64` 和 `linux/arm64`，构建时自带 ELF 架构守卫，不会出现标签写 arm64、里面躺 amd64 二进制的情况：
+
+```bash
+docker pull ghcr.io/awahello/awadaoh:latest
+docker image inspect ghcr.io/awahello/awadaoh:latest | grep -E '"Os"|"Architecture"'
+```
+
+想自己从源码构建（不需要上游任何物料）：
+
+```bash
+docker build -t awadaoh:local .
 ```
 
 ---

@@ -64,11 +64,23 @@ func PublicModeInterceptor(c *gin.Context) {
 		c.Set("userInfo", userInfo)
 		c.Set(base.GIN_GET_VISIT_MODE, base.VISIT_MODE_PUBLIC)
 		return
-	} else {
-		global.Logger.Debug("访客用户不存在:", userId, " ", token)
-		apiReturn.ErrorCode(c, 1001, global.Lang.Get("login.err_token_expire"), nil)
-		c.Abort()
+	}
+
+	// 没配公开账号 —— 兜底用第一个管理员。
+	// panel_public_user_id 默认是空的，以前这里直接回 1001，前端就只剩一片空白导航：
+	// 新装实例打开域名没内容，还得先进后台手动选一次「公开访问账号」才有东西。
+	// 「打开就是导航」要求零配置可用，所以这里自己挑一个管理员顶上。
+	// 管理员想换访客身份时，后台选一次就会写入 panel_public_user_id，走上面那条分支。
+	fallback := models.User{}
+	if err := global.Db.Where("role = ?", 1).Where("status = ?", 1).
+		Order("id asc").First(&fallback).Error; err == nil && fallback.ID != 0 {
+		global.Logger.Debug("未配置访客账号，兜底使用第一个管理员，ID:", fallback.ID)
+		c.Set("userInfo", fallback)
+		c.Set(base.GIN_GET_VISIT_MODE, base.VISIT_MODE_PUBLIC)
 		return
 	}
 
+	global.Logger.Debug("访客用户不存在:", userId, " ", token)
+	apiReturn.ErrorCode(c, 1001, global.Lang.Get("login.err_token_expire"), nil)
+	c.Abort()
 }
