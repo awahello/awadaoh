@@ -3,7 +3,7 @@ import { PanelPanelConfigStyleEnum, PanelStateNetworkModeEnum } from '@/enums'
 import defaultBackground from '@/assets/defaultBackground.webp'
 const LOCAL_NAME = 'panelStorage'
 
-const defaultFooterHtml = '<div class="flex justify-center text-slate-300" style="margin-top:100px">Powered By <a href="https://github.com/awahello/awadaoh" target="_blank" class="ml-[5px]">Akkdaoh</a></div>'
+const defaultFooterHtml = '<div class="flex justify-center text-slate-300" style="margin-top:100px">Powered By <a href="https://github.com/awahello/awadaoh" target="_blank" class="ml-[5px]">Awadaoh</a></div>'
 
 export function defaultStatePanelConfig(): Panel.panelConfig {
   return {
@@ -14,7 +14,7 @@ export function defaultStatePanelConfig(): Panel.panelConfig {
     iconTextColor: '#ffffff',
     iconTextInfoHideDescription: false,
     iconTextIconHideTitle: false,
-    logoText: 'Akkdaoh',
+    logoText: 'Awadaoh',
     logoImageSrc: '',
     clockShowSecond: false,
     searchBoxShow: false,

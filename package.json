@@ -2,10 +2,10 @@
   "name": "awadaoh",
   "version": "1.0.0",
   "private": false,
-  "description": "Akkdaoh Web",
+  "description": "Awadaoh Web",
   "author": "awahello",
   "keywords": [
-    "Akkdaoh",
+    "Awadaoh",
     "vue"
   ],
   "scripts": {

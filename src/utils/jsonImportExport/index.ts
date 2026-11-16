@@ -3,7 +3,7 @@ import moment from 'moment'
 
 const VERSION = 1 // 当前配置文件版本
 const ALLOW_LOW_VERSION = 1 // 最小支持的配置文件版本号
-const APPNAME = 'Akkdaoh-Config'
+const APPNAME = 'Awadaoh-Config'
 
 export class FormatError extends Error {
   constructor(message: string) {
@@ -21,7 +21,7 @@ export class ConfigVersionLowError extends Error {
 
 export interface JsonStructure {
   version: number
-  appName: 'Akkdaoh-Config'
+  appName: 'Awadaoh-Config'
   exportTime: string
   appVersion: string
   icons?: any
@@ -83,7 +83,7 @@ export function exportJson(appVersion?: string): ExportJsonResult {
         const blob = new Blob([jsonString], { type: 'application/json' })
         const link = document.createElement('a')
         link.href = URL.createObjectURL(blob)
-        link.download = `SunPanel-Data${moment().format('YYYYMMDDHHmm')}.awadaoh.json`
+        link.download = `Awadaoh-Data${moment().format('YYYYMMDDHHmm')}.awadaoh.json`
         link.click()
       }
     },
